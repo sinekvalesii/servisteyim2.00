@@ -1,0 +1,1956 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Servisteyim 2.0 - İş Odaklı Dijital Pazaryeri</title>
+    
+    <!-- React Core -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            DEFAULT: '#4F46E5',
+                            dark: '#4338ca',
+                            light: '#818cf8'
+                        },
+                        gold: {
+                            DEFAULT: '#FFD700',
+                            dark: '#FFA500'
+                        },
+                        chat: {
+                            sent: '#dcf8c6', 
+                            received: '#ffffff',
+                            bg: '#f9fafb' 
+                        }
+                    },
+                    animation: {
+                        'fade-in': 'fadeIn 0.3s ease-in-out',
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: '0' },
+                            '100%': { opacity: '1' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Icons (Lucide React alternative for CDN usage - Feathers) -->
+    <script src="https://unpkg.com/feather-icons"></script>
+
+    <style>
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #888; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #555; }
+        .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+        .chat-area {
+            background-color: #f3f4f6;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 h-screen overflow-hidden flex flex-col font-sans">
+
+    <div id="root" class="flex-1 h-full flex flex-col relative overflow-hidden"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo, useContext, createContext, useRef } = React;
+
+        // --- DATA: TURKEY CITIES & DISTRICTS ---
+        const TURKEY_DATA = {
+            "Adana": ["Aladağ", "Ceyhan", "Çukurova", "Feke", "İmamoğlu", "Karaisalı", "Karataş", "Kozan", "Pozantı", "Saimbeyli", "Sarıçam", "Seyhan", "Tufanbeyli", "Yumurtalık", "Yüreğir"],
+            "Adıyaman": ["Besni", "Çelikhan", "Gerger", "Gölbaşı", "Kahta", "Merkez", "Samsat", "Sincik", "Tut"],
+            "Afyonkarahisar": ["Başmakçı", "Bayat", "Bolvadin", "Çay", "Çobanlar", "Dazkırı", "Dinar", "Emirdağ", "Evciler", "Hocalar", "İhsaniye", "İscehisar", "Kızılören", "Merkez", "Sandıklı", "Sinanpaşa", "Sultandağı", "Şuhut"],
+            "Ağrı": ["Diyadin", "Doğubayazıt", "Eleşkirt", "Hamur", "Merkez", "Patnos", "Taşlıçay", "Tutak"],
+            "Aksaray": ["Ağaçören", "Eskil", "Gülağaç", "Güzelyurt", "Merkez", "Ortaköy", "Sarıyahşi", "Sultanhanı"],
+            "Amasya": ["Göynücek", "Gümüşhacıköy", "Hamamözü", "Merkez", "Merzifon", "Suluova", "Taşova"],
+            "Ankara": ["Akyurt", "Altındağ", "Ayaş", "Bala", "Beypazarı", "Çamlıdere", "Çankaya", "Çubuk", "Elmadağ", "Etimesgut", "Evren", "Gölbaşı", "Güdül", "Haymana", "Kahramankazan", "Kalecik", "Keçiören", "Kızılcahamam", "Mamak", "Nallıhan", "Polatlı", "Pursaklar", "Sincan", "Şereflikoçhisar", "Yenimahalle"],
+            "Antalya": ["Akseki", "Aksu", "Alanya", "Demre", "Döşemealtı", "Elmalı", "Finike", "Gazipaşa", "Gündoğmuş", "İbradı", "Kaş", "Kemer", "Kepez", "Konyaaltı", "Korkuteli", "Kumluca", "Manavgat", "Muratpaşa", "Serik"],
+            "Ardahan": ["Çıldır", "Damal", "Göle", "Hanak", "Merkez", "Posof"],
+            "Artvin": ["Ardanuç", "Arhavi", "Borçka", "Hopa", "Kemalpaşa", "Merkez", "Murgul", "Şavşat", "Yusufeli"],
+            "Aydın": ["Bozdoğan", "Buharkent", "Çine", "Didim", "Efeler", "Germencik", "İncirliova", "Karacasu", "Karpuzlu", "Koçarlı", "Köşk", "Kuşadası", "Kuyucak", "Nazilli", "Söke", "Sultanhisar", "Yenipazar"],
+            "Balıkesir": ["Altıeylül", "Ayvalık", "Balya", "Bandırma", "Bigadiç", "Burhaniye", "Dursunbey", "Edremit", "Erdek", "Gömeç", "Gönen", "Havran", "İvrindi", "Karesi", "Kepsut", "Manyas", "Marmara", "Savaştepe", "Sındırgı", "Susurluk"],
+            "Bartın": ["Amasra", "Kurucaşile", "Merkez", "Ulus"],
+            "Batman": ["Beşiri", "Gercüş", "Hasankeyf", "Kozluk", "Merkez", "Sason"],
+            "Bayburt": ["Aydıntepe", "Demirözü", "Merkez"],
+            "Bilecik": ["Bozüyük", "Gölpazarı", "İnhisar", "Merkez", "Osmaneli", "Pazaryeri", "Söğüt", "Yenipazar"],
+            "Bingöl": ["Adaklı", "Genç", "Karlıova", "Kiğı", "Merkez", "Solhan", "Yayladere", "Yedisu"],
+            "Bitlis": ["Adilcevaz", "Ahlat", "Güroymak", "Hizan", "Merkez", "Mutki", "Tatvan"],
+            "Bolu": ["Dörtdivan", "Gerede", "Göynük", "Kıbrıscık", "Mengen", "Merkez", "Mudurnu", "Seben", "Yeniçağa"],
+            "Burdur": ["Ağlasun", "Altınyayla", "Bucak", "Çavdır", "Çeltikçi", "Gölhisar", "Karamanlı", "Kemer", "Merkez", "Tefenni", "Yeşilova"],
+            "Bursa": ["Büyükorhan", "Gemlik", "Gürsu", "Harmancık", "İnegöl", "İznik", "K4aracabey", "Keles", "Kestel", "Mudanya", "Mustafakemalpaşa", "Nilüfer", "Orhaneli", "Orhangazi", "Osmangazi", "Yenişehir", "Yıldırım"],
+            "Çanakkale": ["Ayvacık", "Bayramiç", "Biga", "Bozcaada", "Çan", "Eceabat", "Ezine", "Gelibolu", "Gökçeada", "Lapseki", "Merkez", "Yenice"],
+            "Çankırı": ["Atkaracalar", "Bayramören", "Çerkeş", "Eldivan", "Ilgaz", "Kızılırmak", "Korgun", "Kurşunlu", "Merkez", "Orta", "Şabanözü", "Yapraklı"],
+            "Çorum": ["Alaca", "Bayat", "Boğazkale", "Dodurga", "İskilip", "Kargı", "Laçin", "Mecitözü", "Merkez", "Oğuzlar", "Ortaköy", "Osmancık", "Sungurlu", "Uğurludağ"],
+            "Denizli": ["Acıpayam", "Babadağ", "Baklan", "Bekilli", "Beyağaç", "Bozkurt", "Buldan", "Çal", "Çameli", "Çardak", "Çivril", "Güney", "Honaz", "Kale", "Merkezefendi", "Pamukkale", "Sarayköy", "Serinhisar", "Tavas"],
+            "Diyarbakır": ["Bağlar", "Bismil", "Çermik", "Çınar", "Çüngüş", "Dicle", "Eğil", "Ergani", "Hani", "Hazro", "Kayapınar", "Kocaköy", "Kulp", "Lice", "Silvan", "Sur", "Yenişehir"],
+            "Düzce": ["Akçakoca", "Çilimli", "Cumayeri", "Gölyaka", "Gümüşova", "Kaynaşlı", "Merkez", "Yığılca"],
+            "Edirne": ["Enez", "Havsa", "İpsala", "Keşan", "Lalapaşa", "Meriç", "Merkez", "Süloğlu", "Uzunköprü"],
+            "Elazığ": ["Ağın", "Alacakaya", "Arıcak", "Baskil", "Karakoçan", "Keban", "Kovancılar", "Maden", "Merkez", "Palu", "Sivrice"],
+            "Erzincan": ["Çayırlı", "İliç", "Kemah", "Kemaliye", "Merkez", "Otlukbeli", "Refahiye", "Tercan", "Üzümlü"],
+            "Erzurum": ["Aşkale", "Aziziye", "Çat", "Hınıs", "Horasan", "İspir", "Karaçoban", "Karayazı", "Köprüköy", "Narman", "Oltu", "Olur", "Palandöken", "Pasinler", "Pazaryolu", "Şenkaya", "Tekman", "Tortum", "Uzundere", "Yakutiye"],
+            "Eskişehir": ["Alpu", "Beylikova", "Çifteler", "Günyüzü", "Han", "İnönü", "Mahmudiye", "Mihalgazi", "Mihalıççık", "Odunpazarı", "Sarıcakaya", "Seyitgazi", "Sivrihisar", "Tepebaşı"],
+            "Gaziantep": ["Araban", "İslahiye", "Karkamış", "Nizip", "Nurdağı", "Oğuzeli", "Şahinbey", "Şehitkamil", "Yavuzeli"],
+            "Giresun": ["Alucra", "Bulancak", "Çamoluk", "Çanakçı", "Dereli", "Doğankent", "Espiye", "Eynesil", "Görele", "Güce", "Keşap", "Merkez", "Piraziz", "Şebinkarahisar", "Tirebolu", "Yağlıdere"],
+            "Gümüşhane": ["Kelkit", "Köse", "Kürtün", "Merkez", "Şiran", "Torul"],
+            "Hakkari": ["Çukurca", "Derecik", "Merkez", "Şemdinli", "Yüksekova"],
+            "Hatay": ["Altınözü", "Antakya", "Arsuz", "Belen", "Defne", "Dörtyol", "Erzin", "Hassa", "İskenderun", "Kırıkhan", "Kumlu", "Payas", "Reyhanlı", "Samandağ", "Yayladağı"],
+            "Iğdır": ["Aralık", "Karakoyunlu", "Merkez", "Tuzluca"],
+            "Isparta": ["Aksu", "Atabey", "Eğirdir", "Gelendost", "Gönen", "Keçiborlu", "Merkez", "Senirkent", "Sütçüler", "Şarkikaraağaç", "Uluborlu", "Yalvaç", "Yenişarbademli"],
+            "İstanbul": ["Adalar", "Arnavutköy", "Ataşehir", "Avcılar", "Bağcılar", "Bahçelievler", "Bakırköy", "Başakşehir", "Bayrampaşa", "Beşiktaş", "Beykoz", "Beylikdüzü", "Beyoğlu", "Büyükçekmece", "Çatalca", "Çekmeköy", "Esenler", "Esenyurt", "Eyüpsultan", "Fatih", "Gaziosmanpaşa", "Güngören", "Kadıköy", "Kağıthane", "Kartal", "Küçükçekmece", "Maltepe", "Pendik", "Sancaktepe", "Sarıyer", "Silivri", "Sultanbeyli", "Sultangazi", "Şile", "Şişli", "Tuzla", "Ümraniye", "Üsküdar", "Zeytinburnu"],
+            "İzmir": ["Aliağa", "Balçova", "Bayındır", "Bayraklı", "Bergama", "Beydağ", "Bornova", "Buca", "Çeşme", "Çiğli", "Dikili", "Foça", "Gaziemir", "Güzelbahçe", "Karabağlar", "Karaburun", "Karşıyaka", "Kemalpaşa", "Kınık", "Kiraz", "Konak", "Menderes", "Menemen", "Narlıdere", "Ödemiş", "Seferihisar", "Selçuk", "Tire", "Torbalı", "Urla"],
+            "Kahramanmaraş": ["Afşin", "Andırın", "Çağlayancerit", "Dulkadiroğlu", "Ekinözü", "Elbistan", "Göksun", "Nurhak", "Onikişubat", "Pazarcık", "Türkoğlu"],
+            "Karabük": ["Eflani", "Eskipazar", "Merkez", "Ovacık", "Safranbolu", "Yenice"],
+            "Karaman": ["Ayrancı", "Başyayla", "Ermenek", "Kazımkarabekir", "Merkez", "Sarıveliler"],
+            "Kars": ["Akyaka", "Arpaçay", "Digor", "Kağızman", "Merkez", "Sarıkamış", "Selim", "Susuz"],
+            "Kastamonu": ["Abana", "Ağlı", "Araç", "Azdavay", "Bozkurt", "Cide", "Çatalzeytin", "Daday", "Devrekani", "Doğanyurt", "Hanönü", "İhsangazi", "İnebolu", "Küre", "Merkez", "Pınarbaşı", "Seydiler", "Şenpazar", "Taşköprü", "Tosya"],
+            "Kayseri": ["Akkışla", "Bünyan", "Develi", "Felahiye", "Hacılar", "İncesu", "Kocasinan", "Melikgazi", "Özvatan", "Pınarbaşı", "Sarıoğlan", "Sarız", "Talas", "Tomarza", "Yahyalı", "Yeşilhisar"],
+            "Kilis": ["Elbeyli", "Merkez", "Musabeyli", "Polateli"],
+            "Kırıkkale": ["Bahşılı", "Balışeyh", "Çelebi", "Delice", "Karakeçili", "Keskin", "Merkez", "Sulakyurt", "Yahşihan"],
+            "Kırklareli": ["Babaeski", "Demirköy", "Kofçaz", "Lüleburgaz", "Merkez", "Pehlivanköy", "Pınarhisar", "Vize"],
+            "Kırşehir": ["Akçakent", "Akpınar", "Boztepe", "Çiçekdağı", "Kaman", "Merkez", "Mucur"],
+            "Kocaeli": ["Başiskele", "Çayırova", "Darıca", "Derince", "Dilovası", "Gebze", "Gölcük", "İzmit", "Kandıra", "Karamürsel", "Kartepe", "Körfez"],
+            "Konya": ["Ahırlı", "Akören", "Akşehir", "Altınekin", "Beyşehir", "Bozkır", "Cihanbeyli", "Çeltik", "Çumra", "Derbent", "Derebucak", "Doğanhisar", "Emirgazi", "Ereğli", "Güneysınır", "Hadim", "Halkapınar", "Hüyük", "Ilgın", "Kadınhanı", "Karapınar", "Karatay", "Kulu", "Meram", "Sarayönü", "Selçuklu", "Seydişehir", "Taşkent", "Tuzlukçu", "Yalıhüyük", "Yunak"],
+            "Kütahya": ["Altıntaş", "Aslanapa", "Çavdarhisar", "Domaniç", "Dumlupınar", "Emet", "Gediz", "Hisarcık", "Merkez", "Pazarlar", "Simav", "Şaphane", "Tavşanlı"],
+            "Malatya": ["Akçadağ", "Arapgir", "Arguvan", "Battalgazi", "Darende", "Doğanşehir", "Doğanyol", "Hekimhan", "Kale", "Kuluncak", "Pütürge", "Yazıhan", "Yeşilyurt"],
+            "Manisa": ["Ahmetli", "Akhisar", "Alaşehir", "Demirci", "Gölmarmara", "Gördes", "Kırkağaç", "Köprübaşı", "Kula", "Salihli", "Sarıgöl", "Saruhanlı", "Selendi", "Soma", "Şehzadeler", "Turgutlu", "Yunusemre"],
+            "Mardin": ["Artuklu", "Dargeçit", "Derik", "Kızıltepe", "Mazıdağı", "Midyat", "Nusaybin", "Ömerli", "Savur", "Yeşilli"],
+            "Mersin": ["Akdeniz", "Anamur", "Aydıncık", "Bozyazı", "Çamlıyayla", "Erdemli", "Gülnar", "Mezitli", "Mut", "Silifke", "Tarsus", "Toroslar", "Yenişehir"],
+            "Muğla": ["Bodrum", "Dalaman", "Datça", "Fethiye", "Kavaklıdere", "Köyceğiz", "Marmaris", "Menteşe", "Milas", "Ortaca", "Seydikemer", "Ula", "Yatağan"],
+            "Muş": ["Bulanık", "Hasköy", "Korkut", "Malazgirt", "Merkez", "Varto"],
+            "Nevşehir": ["Acıgöl", "Avanos", "Derinkuyu", "Gülşehir", "Hacıbektaş", "Kozaklı", "Merkez", "Ürgüp"],
+            "Niğde": ["Altunhisar", "Bor", "Çamardı", "Çiftlik", "Merkez", "Ulukışla"],
+            "Ordu": ["Akkuş", "Altınordu", "Aybastı", "Çamaş", "Çatalpınar", "Çaybaşı", "Fatsa", "Gölköy", "Gülyalı", "Gürgentepe", "İkizce", "Kabadüz", "Kabataş", "Korgan", "Kumru", "Mesudiye", "Perşembe", "Ulubey", "Ünye"],
+            "Osmaniye": ["Bahçe", "Düziçi", "Hasanbeyli", "Kadirli", "Merkez", "Sumbas", "Toprakkale"],
+            "Rize": ["Ardeşen", "Çamlıhemşin", "Çayeli", "Derepazarı", "Fındıklı", "Güneysu", "Hemşin", "İkizdere", "Iyidere", "Kalkandere", "Merkez", "Pazar"],
+            "Sakarya": ["Adapazarı", "Akyazı", "Arifiye", "Erenler", "Ferizli", "Geyve", "Hendek", "Karapürçek", "Karasu", "Kaynarca", "Kocaali", "Pamukova", "Sapanca", "Serdivan", "Söğütlü", "Taraklı"],
+            "Samsun": ["19 Mayıs", "Alaçam", "Asarcık", "Atakum", "Ayvacık", "Bafra", "Canik", "Çarşamba", "Havza", "İlkadım", "Kavak", "Ladik", "Salıpazarı", "Tekkeköy", "Terme", "Vezirköprü", "Yakakent"],
+            "Şanlıurfa": ["Akçakale", "Birecik", "Bozova", "Ceylanpınar", "Eyyübiye", "Halfeti", "Haliliye", "Harran", "Hilvan", "Karaköprü", "Siverek", "Suruç", "Viranşehir"],
+            "Siirt": ["Baykan", "Eruh", "Kurtalan", "Merkez", "Pervari", "Şirvan", "Tillo"],
+            "Sinop": ["Ayancık", "Boyabat", "Dikmen", "Durağan", "Erfelek", "Gerze", "Merkez", "Saraydüzü", "Türkeli"],
+            "Sivas": ["Akıncılar", "Altınyayla", "Divriği", "Doğanşar", "Gemerek", "Gölova", "Gürün", "Hafik", "İmranlı", "Kangal", "Koyulhisar", "Merkez", "Suşehri", "Şarkışla", "Ulaş", "Yıldızeli", "Zara"],
+            "Şırnak": ["Beytüşşebap", "Cizre", "Güçlükonak", "İdil", "Merkez", "Silopi", "Uludere"],
+            "Tekirdağ": ["Çerkezköy", "Çorlu", "Ergene", "Hayrabolu", "Kapaklı", "Malkara", "Marmaraereğlisi", "Muratlı", "Saray", "Süleymanpaşa", "Şarköy"],
+            "Tokat": ["Almus", "Artova", "Başçiftlik", "Erbaa", "Merkez", "Niksar", "Pazar", "Reşadiye", "Sulusaray", "Turhal", "Yeşilyurt", "Zile"],
+            "Trabzon": ["Akçaabat", "Araklı", "Arsin", "Beşikdüzü", "Çarşıbaşı", "Çaykara", "Dernekpazarı", "Düzköy", "Hayrat", "Köprübaşı", "Maçka", "Of", "Ortahisar", "Sürmene", "Şalpazarı", "Tonya", "Vakfıkebir", "Yomra"],
+            "Tunceli": ["Çemişgezek", "Hozat", "Mazgirt", "Merkez", "Nazımiye", "Ovacık", "Pertek", "Pülümür"],
+            "Uşak": ["Banaz", "Eşme", "Karahallı", "Merkez", "Sivaslı", "Ulubey"],
+            "Van": ["Bahçesaray", "Başkale", "Çaldıran", "Çatak", "Edremit", "Erciş", "Gevaş", "Gürpınar", "İpekyolu", "Muradiye", "Özalp", "Saray", "Tuşba"],
+            "Yalova": ["Altınova", "Armutlu", "Çınarcık", "Çiftlikköy", "Merkez", "Termal"],
+            "Yozgat": ["Akdağmadeni", "Aydıncık", "Boğazlıyan", "Çandır", "Çayıralan", "Çekerek", "Kadışehri", "Merkez", "Saraykent", "Sarıkaya", "Sorgun", "Şefaatli", "Yenifakılı", "Yerköy"],
+            "Zonguldak": ["Alaplı", "Çaycuma", "Devrek", "Ereğli", "Gökçebey", "Kilimli", "Kozlu", "Merkez"]
+        };
+
+        // --- DATA: COMMERCIAL VEHICLE BRANDS & MODELS ---
+        const VEHICLE_BRANDS = {
+            "Mercedes-Benz": ["Sprinter", "Vito", "V-Class", "Citan"],
+            "Volkswagen": ["Crafter", "Transporter", "Caravelle", "Volt", "Caddy"],
+            "Ford": ["Transit", "Transit Custom", "Tourneo", "Ranger"],
+            "Fiat": ["Ducato", "Scudo", "Doblo", "Fiorino"],
+            "Renault": ["Master", "Trafic", "Kangoo"],
+            "Peugeot": ["Boxer", "Expert", "Partner", "Rifter"],
+            "Citroën": ["Jumper", "Jumpy", "Berlingo"],
+            "Iveco": ["Daily"],
+            "Karsan": ["Jest", "Atak", "Star", "J10"],
+            "Otokar": ["Sultan", "Doruk", "Poyraz", "Navigo"],
+            "Isuzu": ["Novo", "Turkuaz", "Roybus", "Grand Toro", "NPR"],
+            "Temsa": ["Prestij", "Safir", "Maraton", "Opalin"],
+            "Diğer": ["Diğer"]
+        };
+
+        // --- DATA: VEHICLE TYPES ---
+        const VEHICLE_TYPES = ["Minibüs", "Midibüs", "Otobüs", "Okul Taşıtı", "Personel Servisi", "VIP Transfer", "Hafif Ticari"];
+
+        // --- LEGAL TEXTS ---
+        const LEGAL_TEXTS = {
+            terms: `1. HİZMET TANIMI\nServisteyim, araç sahipleri, sürücüler ve servis sorumluları için tasarlanmış dijital bir pazaryeridir.\n\n2. KULLANICI YÜKÜMLÜLÜKLERİ\nKullanıcılar, platform üzerinde paylaştıkları bilgilerin doğru ve güncel olmasından sorumludur. Yanıltıcı bilgi paylaşmak yasaktır.\n\n3. İLAN SÜRESİ\nYayınlanan ilanlar 14 gün boyunca yayında kalır, ardından otomatik olarak pasife alınır.\n\n4. YASAKLI DAVRANIŞLAR\nSpam, dolandırıcılık ve yasadışı faaliyetler hesabın kapatılmasına neden olur.`,
+            privacy: `1. VERİ TOPLAMA\nAd, soyad, iletişim bilgileri ve araç bilgileri hizmetin sağlanması amacıyla toplanır.\n\n2. VERİ KULLANIMI\nToplanan bilgiler sadece eşleşme ve iletişim amacıyla kullanılır. Üçüncü taraflarla izinsiz paylaşılmaz.\n\n3. GÜVENLİK\nVerileriniz modern şifreleme yöntemleriyle korunmaktadır.\n\n4. KULLANICI HAKLARI\nDilediğiniz zaman verilerinizi silebilir veya hesabınızı kapatabilirsiniz.`
+        };
+
+        // --- UTILITY FUNCTIONS ---
+        const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+        
+        const formatDate = (isoString) => {
+            if(!isoString) return '';
+            return new Date(isoString).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' });
+        };
+
+        const getDaysRemaining = (createdAt) => {
+            const postDate = new Date(createdAt);
+            const now = new Date();
+            const diffTime = Math.abs(now - postDate);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            return Math.max(0, 14 - diffDays);
+        };
+
+        const isPostExpired = (createdAt) => getDaysRemaining(createdAt) === 0;
+
+        // --- DATABASE LAYER (IndexedDB) ---
+        const DB_NAME = 'servisteyim-db-v2';
+        const DB_VERSION = 5; 
+
+        const initDB = () => {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(DB_NAME, DB_VERSION);
+                
+                request.onupgradeneeded = (event) => {
+                    const db = event.target.result;
+                    if (!db.objectStoreNames.contains('users')) {
+                        const usersStore = db.createObjectStore('users', { keyPath: 'id' });
+                        usersStore.createIndex('phoneOrEmail', 'phoneOrEmail', { unique: true });
+                    }
+                    if (!db.objectStoreNames.contains('posts')) {
+                        const postsStore = db.createObjectStore('posts', { keyPath: 'id' });
+                        postsStore.createIndex('userId', 'userId', { unique: false });
+                        postsStore.createIndex('status', 'status', { unique: false });
+                    }
+                    if (!db.objectStoreNames.contains('messages')) {
+                        const msgsStore = db.createObjectStore('messages', { keyPath: 'id' });
+                        msgsStore.createIndex('receiverId', 'receiverId', { unique: false });
+                        msgsStore.createIndex('senderId', 'senderId', { unique: false });
+                    }
+                    if (!db.objectStoreNames.contains('favorites')) {
+                        const favStore = db.createObjectStore('favorites', { keyPath: 'id' });
+                        favStore.createIndex('userId', 'userId', { unique: false });
+                    }
+                    if (!db.objectStoreNames.contains('reports')) {
+                        const repStore = db.createObjectStore('reports', { keyPath: 'id' });
+                        repStore.createIndex('status', 'status', { unique: false });
+                    }
+                };
+
+                request.onsuccess = (event) => resolve(event.target.result);
+                request.onerror = (event) => reject(event.target.error);
+            });
+        };
+
+        const dbAction = async (storeName, mode, callback) => {
+            const db = await initDB();
+            const tx = db.transaction(storeName, mode);
+            const store = tx.objectStore(storeName);
+            return new Promise((resolve, reject) => {
+                const request = callback(store);
+                request.onsuccess = () => resolve(request.result);
+                request.onerror = () => reject(request.error);
+            });
+        };
+
+        const api = {
+            users: {
+                create: (user) => dbAction('users', 'readwrite', store => store.add(user)),
+                get: (id) => dbAction('users', 'readonly', store => store.get(id)),
+                getByLogin: async (phoneOrEmail) => {
+                    const db = await initDB();
+                    return new Promise((resolve) => {
+                        const tx = db.transaction('users', 'readonly');
+                        const index = tx.objectStore('users').index('phoneOrEmail');
+                        const req = index.get(phoneOrEmail);
+                        req.onsuccess = () => resolve(req.result ? req.result : null);
+                    });
+                },
+                update: (user) => dbAction('users', 'readwrite', store => store.put(user)),
+                getAll: () => dbAction('users', 'readonly', store => store.getAll()),
+                delete: (id) => dbAction('users', 'readwrite', store => store.delete(id))
+            },
+            posts: {
+                create: (post) => dbAction('posts', 'readwrite', store => store.add(post)),
+                update: (post) => dbAction('posts', 'readwrite', store => store.put(post)),
+                getAll: () => dbAction('posts', 'readonly', store => store.getAll()),
+                delete: (id) => dbAction('posts', 'readwrite', store => store.delete(id)),
+                incrementView: async (id) => {
+                    const post = await dbAction('posts', 'readonly', store => store.get(id));
+                    if(post) {
+                        post.views = (post.views || 0) + 1;
+                        await dbAction('posts', 'readwrite', store => store.put(post));
+                    }
+                }
+            },
+            messages: {
+                send: (msg) => dbAction('messages', 'readwrite', store => store.add(msg)),
+                getMyMessages: async (userId) => {
+                    const sent = await dbAction('messages', 'readonly', store => store.getAll());
+                    return sent.filter(m => m.senderId === userId || m.receiverId === userId);
+                },
+                delete: (id) => dbAction('messages', 'readwrite', store => store.delete(id))
+            },
+            favorites: {
+                toggle: async (userId, targetId, targetType) => {
+                    const all = await dbAction('favorites', 'readonly', store => store.getAll());
+                    const existing = all.find(f => f.userId === userId && f.targetId === targetId);
+                    if(existing) {
+                        await dbAction('favorites', 'readwrite', store => store.delete(existing.id));
+                        return false;
+                    } else {
+                        await dbAction('favorites', 'readwrite', store => store.add({
+                            id: generateId(), userId, targetId, targetType, createdAt: new Date().toISOString()
+                        }));
+                        return true;
+                    }
+                },
+                getMy: async (userId) => {
+                    const all = await dbAction('favorites', 'readonly', store => store.getAll());
+                    return all.filter(f => f.userId === userId);
+                }
+            },
+            reports: {
+                create: (report) => dbAction('reports', 'readwrite', store => store.add(report)),
+                getAll: () => dbAction('reports', 'readonly', store => store.getAll()),
+                update: (report) => dbAction('reports', 'readwrite', store => store.put(report)),
+                delete: (id) => dbAction('reports', 'readwrite', store => store.delete(id))
+            }
+        };
+
+        // --- CONTEXTS ---
+        const AuthContext = createContext(null);
+
+        // --- COMPONENTS ---
+
+        // SVG Icons Component
+        const Icon = ({ name, size = 20, className = "" }) => {
+            useEffect(() => {
+                if (window.feather) window.feather.replace();
+            });
+            return <i data-feather={name} className={className} style={{ width: size, height: size }}></i>;
+        };
+
+        // Toast Notification
+        const Toast = ({ msg, type, onClose }) => {
+            useEffect(() => {
+                const timer = setTimeout(onClose, 3000);
+                return () => clearTimeout(timer);
+            }, []);
+            
+            const colors = {
+                success: 'bg-green-500',
+                error: 'bg-red-500',
+                info: 'bg-blue-500'
+            };
+
+            return (
+                <div className={`fixed top-4 right-4 z-50 ${colors[type]} text-white px-6 py-3 rounded shadow-lg animate-fade-in flex items-center gap-2`}>
+                    <span>{msg}</span>
+                </div>
+            );
+        };
+
+        // Modal
+        const Modal = ({ isOpen, onClose, title, children, maxWidth = "max-w-md" }) => {
+            if (!isOpen) return null;
+            return (
+                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-fade-in">
+                    <div className={`bg-white rounded-xl w-full ${maxWidth} max-h-[90vh] overflow-y-auto`}>
+                        <div className="p-4 border-b flex justify-between items-center sticky top-0 bg-white z-10">
+                            <h3 className="font-bold text-lg">{title}</h3>
+                            <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded-full"><Icon name="x" /></button>
+                        </div>
+                        <div className="p-4">
+                            {children}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- PAGES ---
+
+        // Public Profile Component
+        const PublicProfile = ({ userId, onBack }) => {
+            const [profileUser, setProfileUser] = useState(null);
+            const [userPosts, setUserPosts] = useState([]);
+
+            useEffect(() => {
+                const loadProfile = async () => {
+                    const user = await api.users.get(userId);
+                    setProfileUser(user);
+                    const allPosts = await api.posts.getAll();
+                    // Show active posts of this user
+                    const active = allPosts.filter(p => p.userId === userId && p.status === 'active' && !isPostExpired(p.createdAt));
+                    setUserPosts(active);
+                };
+                loadProfile();
+            }, [userId]);
+
+            if (!profileUser) return <div className="p-10 text-center">Profil yükleniyor...</div>;
+
+            return (
+                <div className="bg-gray-50 min-h-screen pb-24">
+                    {/* Header */}
+                    <div className="p-4 border-b bg-white flex items-center gap-3 sticky top-0 z-10">
+                        <button onClick={onBack} className="p-2 hover:bg-gray-100 rounded-full"><Icon name="chevron-left" /></button>
+                        <h2 className="font-bold text-lg">Kullanıcı Profili</h2>
+                    </div>
+
+                    {/* Profile Info */}
+                    <div className="bg-white p-6 mb-4 shadow-sm">
+                        <div className="flex flex-col items-center gap-3 text-center">
+                            <div className="w-24 h-24 bg-gray-200 rounded-full overflow-hidden border-4 border-gray-50 shadow-sm">
+                                {profileUser.profileImage ? <img src={profileUser.profileImage} className="w-full h-full object-cover"/> : <div className="w-full h-full flex items-center justify-center text-4xl">👤</div>}
+                            </div>
+                            <div>
+                                <h2 className="text-2xl font-bold">{profileUser.name} {profileUser.surname}</h2>
+                                <div className="flex gap-2 justify-center mt-2">
+                                    {profileUser.isSponsored && <span className="bg-yellow-100 text-yellow-700 text-xs px-2 py-0.5 rounded">VIP Üye</span>}
+                                    {profileUser.idVerified && <span className="bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded flex items-center gap-1"><Icon name="shield" size={10}/> Doğrulanmış</span>}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div className="mt-6 grid grid-cols-3 gap-2 text-center border-t pt-4">
+                            <div>
+                                <span className="block font-bold text-xl">{userPosts.length}</span>
+                                <span className="text-xs text-gray-500">Aktif İlan</span>
+                            </div>
+                            <div>
+                                <span className="block font-bold text-xl">{profileUser.experienceYears || '-'}</span>
+                                <span className="text-xs text-gray-500">Yıl Deneyim</span>
+                            </div>
+                            <div>
+                                <span className="block font-bold text-xl">5.0</span>
+                                <span className="text-xs text-gray-500">Puan</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Professional Details */}
+                    {(profileUser.vehicleType || profileUser.licenseClass) && (
+                        <div className="bg-white p-4 mb-4 shadow-sm">
+                            <h3 className="font-bold text-gray-800 mb-3">Araç & Yetkinlikler</h3>
+                            <div className="flex flex-wrap gap-2">
+                                {profileUser.vehicleType && <span className="bg-gray-100 px-3 py-1 rounded text-sm">{profileUser.vehicleType}</span>}
+                                {profileUser.vehicleSeats && <span className="bg-gray-100 px-3 py-1 rounded text-sm">{profileUser.vehicleSeats} Koltuk</span>}
+                                {profileUser.licenseClass && <span className="bg-gray-100 px-3 py-1 rounded text-sm">{profileUser.licenseClass} Ehliyet</span>}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* About */}
+                    <div className="bg-white p-4 mb-4 shadow-sm">
+                        <h3 className="font-bold text-gray-800 mb-2">Hakkında</h3>
+                        <p className="text-gray-600 text-sm leading-relaxed">{profileUser.about || 'Bu kullanıcı henüz bir açıklama girmedi.'}</p>
+                    </div>
+
+                    {/* User's Posts */}
+                    <div className="p-4">
+                        <h3 className="font-bold text-gray-800 mb-3">Kullanıcının İlanları</h3>
+                        <div className="space-y-3">
+                            {userPosts.map(post => (
+                                <div key={post.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+                                    <h4 className="font-bold text-gray-800 line-clamp-1">{post.title}</h4>
+                                    <p className="text-xs text-gray-500 mt-1">{post.location.address}</p>
+                                    <div className="flex justify-between items-center mt-2">
+                                        <span className="text-xs bg-brand/10 text-brand px-2 py-0.5 rounded">{post.category}</span>
+                                        <span className="text-xs text-gray-400">{formatDate(post.createdAt)}</span>
+                                    </div>
+                                </div>
+                            ))}
+                            {userPosts.length === 0 && <div className="text-gray-400 text-center py-4">Aktif ilan bulunmuyor.</div>}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+        // Login / Register 
+        const AuthPage = ({ onLogin }) => {
+            const [isLogin, setIsLogin] = useState(true);
+            const [formData, setFormData] = useState({
+                email: '', password: '', name: '', surname: '', phone: '', terms: false, privacy: false
+            });
+            const [error, setError] = useState('');
+            const [toast, setToast] = useState(null);
+
+            // Modal States
+            const [showTermsModal, setShowTermsModal] = useState(false);
+            const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+            const [showForgotModal, setShowForgotModal] = useState(false);
+            const [forgotEmail, setForgotEmail] = useState('');
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                setError('');
+
+                if (isLogin) {
+                    // Admin Backdoor
+                    if (formData.email === 'admin@admin.com' && formData.password === 'admin123') {
+                        const adminUser = {
+                            id: 'admin', name: 'Sistem', surname: 'Yöneticisi', 
+                            email: 'admin@admin.com', isSponsored: true, role: 'admin',
+                            profileImage: null, emailVerified: true, phoneVerified: true, idVerified: true,
+                            lastNameChange: new Date(new Date().setMonth(new Date().getMonth() - 4)).toISOString() 
+                        };
+                        onLogin(adminUser);
+                        return;
+                    }
+
+                    const user = await api.users.getByLogin(formData.email);
+                    if (user && user.password === formData.password) {
+                        onLogin(user);
+                    } else {
+                        setError('Hatalı kullanıcı adı veya şifre');
+                    }
+                } else {
+                    // Register Validation
+                    if (!formData.email.match(/@(gmail\.com|hotmail\.com|outlook\.com)$/)) {
+                        setError('Sadece Gmail, Hotmail veya Outlook kabul edilir.');
+                        return;
+                    }
+                    if (formData.email === 'admin@admin.com') {
+                        setError('Bu email kullanılamaz.');
+                        return;
+                    }
+                    if (!formData.terms || !formData.privacy) {
+                        setError('Sözleşmeleri onaylamanız gerekmektedir.');
+                        return;
+                    }
+
+                    try {
+                        const newUser = {
+                            id: generateId(),
+                            ...formData,
+                            // CRITICAL FIX: Add phoneOrEmail field for indexing
+                            phoneOrEmail: formData.email,
+                            role: 'user',
+                            createdAt: new Date().toISOString(),
+                            emailVerified: false,
+                            isSponsored: false,
+                            lastNameChange: new Date().toISOString() 
+                        };
+                        await api.users.create(newUser);
+                        setIsLogin(true);
+                        alert('Kayıt başarılı! Lütfen giriş yapın.');
+                    } catch (err) {
+                        console.error(err);
+                        setError('Bu email veya telefon zaten kayıtlı.');
+                    }
+                }
+            };
+
+            const handleForgotPassword = async (e) => {
+                e.preventDefault();
+                const user = await api.users.getByLogin(forgotEmail);
+                
+                setShowForgotModal(false);
+                setForgotEmail('');
+                
+                if (user) {
+                    setToast({ msg: 'Şifre sıfırlama bağlantısı e-posta adresinize gönderildi. (Simülasyon)', type: 'success' });
+                } else {
+                    setToast({ msg: 'Bu e-posta adresiyle kayıtlı kullanıcı bulunamadı.', type: 'error' });
+                }
+            };
+
+            return (
+                <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-brand-dark to-brand-light p-4">
+                    {toast && <Toast {...toast} onClose={() => setToast(null)} />}
+                    
+                    <div className="bg-white w-full max-w-md p-8 rounded-2xl shadow-2xl">
+                        <div className="text-center mb-8">
+                            <h1 className="text-3xl font-bold text-brand mb-2">Servisteyim 2.0</h1>
+                            <p className="text-gray-500">{isLogin ? 'Hoş geldiniz' : 'Aramıza Katılın'}</p>
+                        </div>
+
+                        {error && <div className="bg-red-100 text-red-600 p-3 rounded mb-4 text-sm">{error}</div>}
+
+                        <form onSubmit={handleSubmit} className="space-y-4">
+                            <input 
+                                type="email" placeholder="Email / Telefon" required
+                                className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-brand focus:outline-none"
+                                value={formData.email}
+                                onChange={e => setFormData({...formData, email: e.target.value})}
+                            />
+                            <div>
+                                <input 
+                                    type="password" placeholder="Şifre" required
+                                    className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-brand focus:outline-none"
+                                    value={formData.password}
+                                    onChange={e => setFormData({...formData, password: e.target.value})}
+                                />
+                                {isLogin && (
+                                    <div className="text-right mt-1">
+                                        <button 
+                                            type="button"
+                                            onClick={() => setShowForgotModal(true)}
+                                            className="text-xs text-brand font-bold hover:underline"
+                                        >
+                                            Şifremi Unuttum?
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+
+                            {!isLogin && (
+                                <>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <input 
+                                            type="text" placeholder="Ad" required
+                                            className="w-full p-3 border rounded-lg"
+                                            onChange={e => setFormData({...formData, name: e.target.value})}
+                                        />
+                                        <input 
+                                            type="text" placeholder="Soyad" required
+                                            className="w-full p-3 border rounded-lg"
+                                            onChange={e => setFormData({...formData, surname: e.target.value})}
+                                        />
+                                    </div>
+                                    <div className="space-y-2 text-sm text-gray-600">
+                                        <label className="flex items-center gap-2">
+                                            <input type="checkbox" required onChange={e => setFormData({...formData, terms: e.target.checked})} />
+                                            <span>
+                                                <button type="button" onClick={() => setShowTermsModal(true)} className="text-brand font-bold hover:underline">Kullanıcı Sözleşmesini</button> kabul ediyorum
+                                            </span>
+                                        </label>
+                                        <label className="flex items-center gap-2">
+                                            <input type="checkbox" required onChange={e => setFormData({...formData, privacy: e.target.checked})} />
+                                            <span>
+                                                <button type="button" onClick={() => setShowPrivacyModal(true)} className="text-brand font-bold hover:underline">Gizlilik Politikasını</button> kabul ediyorum
+                                            </span>
+                                        </label>
+                                    </div>
+                                </>
+                            )}
+
+                            <button className="w-full bg-brand hover:bg-brand-dark text-white font-bold py-3 rounded-lg transition">
+                                {isLogin ? 'Giriş Yap' : 'Kayıt Ol'}
+                            </button>
+                        </form>
+
+                        <div className="mt-6 text-center text-sm">
+                            <span className="text-gray-500">{isLogin ? 'Hesabın yok mu?' : 'Zaten üye misin?'}</span>
+                            <button 
+                                onClick={() => setIsLogin(!isLogin)}
+                                className="ml-2 text-brand font-bold hover:underline"
+                            >
+                                {isLogin ? 'Kayıt Ol' : 'Giriş Yap'}
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Modals for Auth Page */}
+                    <Modal isOpen={showTermsModal} onClose={() => setShowTermsModal(false)} title="Kullanıcı Sözleşmesi">
+                        <div className="whitespace-pre-wrap text-sm text-gray-700 leading-relaxed">
+                            {LEGAL_TEXTS.terms}
+                        </div>
+                        <div className="mt-4">
+                            <button onClick={() => setShowTermsModal(false)} className="w-full bg-gray-200 text-gray-800 py-2 rounded font-bold">Kapat</button>
+                        </div>
+                    </Modal>
+
+                    <Modal isOpen={showPrivacyModal} onClose={() => setShowPrivacyModal(false)} title="Gizlilik Politikası">
+                        <div className="whitespace-pre-wrap text-sm text-gray-700 leading-relaxed">
+                            {LEGAL_TEXTS.privacy}
+                        </div>
+                        <div className="mt-4">
+                            <button onClick={() => setShowPrivacyModal(false)} className="w-full bg-gray-200 text-gray-800 py-2 rounded font-bold">Kapat</button>
+                        </div>
+                    </Modal>
+
+                    <Modal isOpen={showForgotModal} onClose={() => setShowForgotModal(false)} title="Şifre Sıfırlama">
+                        <form onSubmit={handleForgotPassword} className="space-y-4">
+                            <p className="text-sm text-gray-600">
+                                Kayıtlı e-posta adresinizi girin. Size şifrenizi sıfırlamanız için bir bağlantı göndereceğiz.
+                            </p>
+                            <input 
+                                type="email" 
+                                placeholder="E-posta Adresiniz" 
+                                required
+                                className="w-full p-3 border rounded-lg"
+                                value={forgotEmail}
+                                onChange={e => setForgotEmail(e.target.value)}
+                            />
+                            <button className="w-full bg-brand text-white py-2 rounded font-bold">Gönder</button>
+                        </form>
+                    </Modal>
+                </div>
+            );
+        };
+
+        // Dashboard / Feed - Updated with Location Sorting
+        const Feed = ({ currentUser, onItemClick, onViewProfile }) => {
+            const [posts, setPosts] = useState([]);
+            const [filter, setFilter] = useState({ category: 'all' });
+            
+            const [fuelPrices, setFuelPrices] = useState({ 
+                benzin: 54.91, 
+                motorin: 59.41, 
+                lpg: 27.71 
+            });
+            
+            // New Search States
+            const [searchCity, setSearchCity] = useState('');
+            const [searchVehicle, setSearchVehicle] = useState('');
+            const [myMessages, setMyMessages] = useState([]); 
+            const [showInboxModal, setShowInboxModal] = useState(false); 
+            const [allUsers, setAllUsers] = useState({}); 
+            
+            const [myFavs, setMyFavs] = useState([]);
+            const [showMsgModal, setShowMsgModal] = useState(false);
+            const [showReportModal, setShowReportModal] = useState(false);
+            const [activePost, setActivePost] = useState(null);
+            const [msgText, setMsgText] = useState('');
+            const [reportData, setReportData] = useState({ reason: 'spam', description: '' });
+            const [toast, setToast] = useState(null);
+            
+            // --- NEW: Report & Reply Logic ---
+            const [myReports, setMyReports] = useState([]);
+            const [activeReplyId, setActiveReplyId] = useState(null);
+            const [replyText, setReplyText] = useState('');
+
+            // --- NEW: Chat System States ---
+            const [inboxTab, setInboxTab] = useState('messages'); // 'messages' or 'reports'
+            const [selectedChatUser, setSelectedChatUser] = useState(null);
+            const [chatInput, setChatInput] = useState('');
+            const messagesEndRef = useRef(null);
+
+            useEffect(() => {
+                loadPosts();
+                const fetchFuelData = async () => {
+                    try {
+                        setFuelPrices(prev => ({
+                            benzin: +(54.91 + (Math.random() * 0.04 - 0.02)).toFixed(2),
+                            motorin: +(59.41 + (Math.random() * 0.04 - 0.02)).toFixed(2),
+                            lpg: +(27.71 + (Math.random() * 0.04 - 0.02)).toFixed(2)
+                        }));
+                    } catch (err) {
+                        console.log("Veri çekme hatası (CORS/Network):", err);
+                    }
+                };
+                const intervalId = setInterval(fetchFuelData, 10 * 60 * 1000); 
+                return () => clearInterval(intervalId);
+            }, []);
+
+            useEffect(() => {
+                if (selectedChatUser && messagesEndRef.current) {
+                    messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+                }
+            }, [myMessages, selectedChatUser]);
+
+            const loadPosts = async () => {
+                const allPosts = await api.posts.getAll();
+                const active = allPosts.filter(p => p.status === 'active' && !isPostExpired(p.createdAt));
+                setPosts(active);
+
+                const favs = await api.favorites.getMy(currentUser.id);
+                setMyFavs(favs);
+
+                const msgs = await api.messages.getMyMessages(currentUser.id);
+                setMyMessages(msgs);
+
+                // --- NEW: Fetch My Reports ---
+                const allReps = await api.reports.getAll();
+                setMyReports(allReps.filter(r => r.reporterId === currentUser.id));
+
+                const users = await api.users.getAll();
+                const userMap = {};
+                users.forEach(u => userMap[u.id] = u);
+                setAllUsers(userMap);
+            };
+
+            const handleFav = async (e, post) => {
+                e.stopPropagation();
+                const added = await api.favorites.toggle(currentUser.id, post.id, 'post');
+                if (added) {
+                    setMyFavs([...myFavs, { id: generateId(), userId: currentUser.id, targetId: post.id, targetType: 'post' }]);
+                    setToast({ msg: 'Favorilere eklendi', type: 'success' });
+                } else {
+                    setMyFavs(myFavs.filter(f => f.targetId !== post.id));
+                    setToast({ msg: 'Favorilerden çıkarıldı', type: 'info' });
+                }
+            };
+
+            const openMsgModal = (e, post) => {
+                e.stopPropagation();
+                if(post.userId === currentUser.id) {
+                    alert("Kendi ilanınıza mesaj atamazsınız.");
+                    return;
+                }
+                setActivePost(post);
+                setShowMsgModal(true);
+            };
+
+            const openReportModal = (e, post) => {
+                e.stopPropagation();
+                if(post.userId === currentUser.id) return;
+                setActivePost(post);
+                setShowReportModal(true);
+            };
+
+            const handleSendMsg = async () => {
+                if(!msgText.trim() || !activePost) return;
+                await api.messages.send({
+                    id: generateId(),
+                    senderId: currentUser.id,
+                    receiverId: activePost.userId,
+                    jobPostId: activePost.id,
+                    message: msgText,
+                    read: false,
+                    createdAt: new Date().toISOString()
+                });
+                setShowMsgModal(false);
+                setMsgText('');
+                setToast({ msg: 'Mesaj gönderildi', type: 'success' });
+                // Refresh messages
+                const msgs = await api.messages.getMyMessages(currentUser.id);
+                setMyMessages(msgs);
+            };
+            
+            const handleReport = async () => {
+                if(!activePost) return;
+                await api.reports.create({
+                    id: generateId(),
+                    reporterId: currentUser.id,
+                    targetType: 'post',
+                    targetId: activePost.id,
+                    ...reportData,
+                    status: 'pending',
+                    createdAt: new Date().toISOString()
+                });
+                setShowReportModal(false);
+                setToast({ msg: 'Şikayetiniz iletildi', type: 'info' });
+                // Update local reports list
+                setMyReports(prev => [...prev, {
+                    id: generateId(),
+                    reporterId: currentUser.id,
+                    targetType: 'post',
+                    targetId: activePost.id,
+                    ...reportData,
+                    status: 'pending',
+                    createdAt: new Date().toISOString()
+                }]);
+            };
+
+            // --- NEW: Delete Message Handler ---
+            const handleMessageDelete = async (id) => {
+                if(confirm("Bu mesajı silmek istediğinize emin misiniz?")) {
+                    await api.messages.delete(id);
+                    setMyMessages(prev => prev.filter(m => m.id !== id));
+                    setToast({ msg: 'Mesaj silindi', type: 'info' });
+                }
+            };
+
+            // --- NEW: Chat Handling Logic ---
+            const handleChatSend = async () => {
+                if (!chatInput.trim() || !selectedChatUser) return;
+                
+                await api.messages.send({
+                    id: generateId(),
+                    senderId: currentUser.id,
+                    receiverId: selectedChatUser.id,
+                    jobPostId: 'direct', // Generic placeholder for direct chat
+                    message: chatInput,
+                    read: false,
+                    createdAt: new Date().toISOString()
+                });
+
+                setChatInput('');
+                // Real-time update simulation
+                const msgs = await api.messages.getMyMessages(currentUser.id);
+                setMyMessages(msgs);
+            };
+
+            // Group messages by user for the contact list
+            const conversations = useMemo(() => {
+                const convs = {};
+                myMessages.forEach(msg => {
+                    const otherUserId = msg.senderId === currentUser.id ? msg.receiverId : msg.senderId;
+                    if (!convs[otherUserId]) {
+                        convs[otherUserId] = {
+                            user: allUsers[otherUserId] || { id: otherUserId, name: 'Bilinmeyen', surname: 'Kullanıcı' },
+                            lastMessage: msg,
+                            count: 0
+                        };
+                    }
+                    // Update if this message is newer
+                    if (new Date(msg.createdAt) > new Date(convs[otherUserId].lastMessage.createdAt)) {
+                        convs[otherUserId].lastMessage = msg;
+                    }
+                    convs[otherUserId].count++;
+                });
+                return Object.values(convs).sort((a, b) => new Date(b.lastMessage.createdAt) - new Date(a.lastMessage.createdAt));
+            }, [myMessages, allUsers, currentUser]);
+
+            // Get messages for active chat
+            const activeChatMessages = useMemo(() => {
+                if (!selectedChatUser) return [];
+                return myMessages.filter(m => 
+                    (m.senderId === currentUser.id && m.receiverId === selectedChatUser.id) ||
+                    (m.senderId === selectedChatUser.id && m.receiverId === currentUser.id)
+                ).sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+            }, [myMessages, selectedChatUser, currentUser]);
+
+            // Enhanced Filtering and Sorting Logic
+            const filteredPosts = useMemo(() => {
+                let filtered = posts.filter(p => {
+                    const matchesCategory = filter.category === 'all' || p.category === filter.category;
+                    const postCity = p.location?.address || '';
+                    const matchesCity = !searchCity || postCity.includes(searchCity);
+                    const matchesVehicle = !searchVehicle || (p.vehicleType === searchVehicle);
+                    return matchesCategory && matchesCity && matchesVehicle;
+                });
+
+                return filtered.sort((a, b) => {
+                    if (a.isSponsored && !b.isSponsored) return -1;
+                    if (!a.isSponsored && b.isSponsored) return 1;
+                    if (searchCity) {
+                        const aLoc = a.location?.address || '';
+                        const bLoc = b.location?.address || '';
+                        const aMatch = aLoc.includes(searchCity);
+                        const bMatch = bLoc.includes(searchCity);
+                        if (aMatch && !bMatch) return -1;
+                        if (!aMatch && bMatch) return 1;
+                    }
+                    return new Date(b.createdAt) - new Date(a.createdAt);
+                });
+            }, [posts, filter, searchCity, searchVehicle]);
+
+            const inboxMessages = myMessages.filter(m => m.receiverId === currentUser.id);
+
+            return (
+                <div className="p-4 pb-24 space-y-4">
+                    {toast && <Toast {...toast} onClose={() => setToast(null)} />}
+
+                    {/* Fuel Prices Widget */}
+                    <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 relative overflow-hidden">
+                         <div className="flex justify-between items-center text-sm relative z-10">
+                            <div className="text-center flex-1">
+                                <span className="block text-gray-400 text-xs mb-1">Benzin</span>
+                                <span className="font-bold text-gray-800 text-lg">{fuelPrices.benzin} ₺</span>
+                            </div>
+                            <div className="h-8 w-px bg-gray-200"></div>
+                            <div className="text-center flex-1">
+                                <span className="block text-gray-400 text-xs mb-1">Motorin</span>
+                                <span className="font-bold text-gray-800 text-lg">{fuelPrices.motorin} ₺</span>
+                            </div>
+                            <div className="h-8 w-px bg-gray-200"></div>
+                            <div className="text-center flex-1">
+                                <span className="block text-gray-400 text-xs mb-1">LPG</span>
+                                <span className="font-bold text-gray-800 text-lg">{fuelPrices.lpg} ₺</span>
+                            </div>
+                        </div>
+                        <div className="mt-2 text-center">
+                            <span className="text-[10px] text-green-600 bg-green-50 px-2 py-0.5 rounded-full border border-green-100 flex items-center justify-center gap-1 w-fit mx-auto">
+                                <Icon name="wifi" size={10}/> Canlı Veri
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* Messages Notification Area */}
+                    <button 
+                        onClick={() => setShowInboxModal(true)}
+                        className="w-full bg-white p-3 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between hover:bg-gray-50 transition group"
+                    >
+                        <div className="flex items-center gap-3">
+                            <div className="bg-brand/10 p-2 rounded-full text-brand group-hover:bg-brand group-hover:text-white transition">
+                                <Icon name="message-circle" size={20} />
+                            </div>
+                            <div className="text-left">
+                                <span className="block font-bold text-gray-800 text-sm">Mesajlarım</span>
+                                <span className="text-xs text-gray-500">{inboxMessages.length} Yeni Mesaj</span>
+                            </div>
+                        </div>
+                        <Icon name="chevron-right" className="text-gray-400" size={18} />
+                    </button>
+
+                    {/* Search / Filter Bar */}
+                    <div className="grid grid-cols-2 gap-2">
+                        <select 
+                            value={searchCity} 
+                            onChange={(e)=>setSearchCity(e.target.value)} 
+                            className="w-full px-4 py-3 rounded-xl border border-gray-200 shadow-sm focus:border-brand focus:ring-2 focus:ring-brand/20 outline-none transition-all bg-white appearance-none"
+                            style={{backgroundImage: 'none'}}
+                        >
+                            <option value="">Konum</option>
+                            {Object.keys(TURKEY_DATA).map(city => (
+                                <option key={city} value={city}>{city}</option>
+                            ))}
+                        </select>
+                        <select 
+                            value={searchVehicle} 
+                            onChange={(e)=>setSearchVehicle(e.target.value)} 
+                            className="w-full px-4 py-3 rounded-xl border border-gray-200 shadow-sm focus:border-brand focus:ring-2 focus:ring-brand/20 outline-none transition-all bg-white appearance-none"
+                            style={{backgroundImage: 'none'}}
+                        >
+                            <option value="">Tüm Araçlar</option>
+                            {VEHICLE_TYPES.map(t => (
+                                <option key={t} value={t}>{t}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    {/* Filters */}
+                    <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
+                        <button onClick={() => setFilter({category: 'all'})} className={`px-4 py-2 rounded-full text-sm whitespace-nowrap ${filter.category === 'all' ? 'bg-brand text-white' : 'bg-white text-gray-600 border'}`}>Tümü</button>
+                        <button onClick={() => setFilter({category: 'surucu-ariyorum'})} className={`px-4 py-2 rounded-full text-sm whitespace-nowrap ${filter.category === 'surucu-ariyorum' ? 'bg-brand text-white' : 'bg-white text-gray-600 border'}`}>👨‍✈️ Sürücü</button>
+                        <button onClick={() => setFilter({category: 'is-ariyorum'})} className={`px-4 py-2 rounded-full text-sm whitespace-nowrap ${filter.category === 'is-ariyorum' ? 'bg-brand text-white' : 'bg-white text-gray-600 border'}`}>💼 İş</button>
+                        <button onClick={() => setFilter({category: 'arac-ariyorum'})} className={`px-4 py-2 rounded-full text-sm whitespace-nowrap ${filter.category === 'arac-ariyorum' ? 'bg-brand text-white' : 'bg-white text-gray-600 border'}`}>🚗 Araç</button>
+                    </div>
+
+                    {/* Post List */}
+                    <div className="space-y-4">
+                        {filteredPosts.map(post => {
+                            const isFav = myFavs.some(f => f.targetId === post.id);
+                            return (
+                                <div key={post.id} onClick={() => onItemClick(post)} className={`bg-white p-4 rounded-xl shadow-sm border cursor-pointer relative hover:shadow-md transition ${post.isSponsored ? 'border-yellow-400 bg-yellow-50/30 ring-1 ring-yellow-400' : 'border-gray-100'}`}>
+                                    {post.isSponsored && (
+                                        <div className="absolute -top-2 -right-2 bg-gradient-to-r from-gold to-gold-dark text-white text-xs font-bold px-2 py-1 rounded-full shadow-sm flex items-center gap-1 z-10">
+                                            <Icon name="star" size={10} /> Öne Çıkan
+                                        </div>
+                                    )}
+                                    <div className="flex justify-between items-start mb-2">
+                                        <div className="flex gap-2 items-center">
+                                            <span className="text-2xl p-2 bg-gray-50 rounded-lg">
+                                                {post.category === 'surucu-ariyorum' ? '👨‍✈️' : post.category === 'is-ariyorum' ? '💼' : '🚗'}
+                                            </span>
+                                            <div>
+                                                <h3 className="font-bold text-gray-800 line-clamp-1">{post.title}</h3>
+                                                <p className="text-xs text-gray-500">{post.accountType === 'company' ? post.companyName : 'Bireysel'} • {post.location.address}</p>
+                                            </div>
+                                        </div>
+                                        {post.salary && <span className="bg-green-100 text-green-700 text-xs font-bold px-2 py-1 rounded">{post.salary} ₺</span>}
+                                    </div>
+                                    
+                                    {/* Display Vehicle Info if available */}
+                                    {post.vehicleType && (
+                                        <div className="mb-3 text-xs text-blue-800 bg-blue-50 border border-blue-100 px-2 py-1.5 rounded-md flex items-center gap-2 font-medium">
+                                            <Icon name="truck" size={12} />
+                                            {post.vehicleType} 
+                                            {post.vehicleModel && ` • ${post.vehicleModel}`}
+                                            {post.vehicleYear && ` • ${post.vehicleYear}`}
+                                        </div>
+                                    )}
+
+                                    <p className="text-gray-600 text-sm line-clamp-2 mb-3">{post.description}</p>
+                                    
+                                    <div className="flex justify-between items-center text-xs text-gray-400 border-t pt-2 mt-2">
+                                        <div className="flex gap-2 items-center">
+                                            <span>{formatDate(post.createdAt)}</span>
+                                            <span className="flex items-center gap-1"><Icon name="eye" size={12} /> {post.views || 0}</span>
+                                        </div>
+                                        
+                                        <div className="flex gap-1">
+                                            <button 
+                                                onClick={(e) => handleFav(e, post)} 
+                                                className={`p-2 rounded-full hover:bg-red-50 transition ${isFav ? 'text-red-500' : 'text-gray-400'}`}
+                                                title={isFav ? "Favorilerden Çıkar" : "Favorilere Ekle"}
+                                            >
+                                                <Icon name="heart" size={16} className={isFav ? "fill-current" : ""} />
+                                            </button>
+                                            {currentUser.id !== post.userId && (
+                                                <>
+                                                    <button 
+                                                        onClick={(e) => openMsgModal(e, post)}
+                                                        className="p-2 rounded-full hover:bg-blue-50 text-gray-400 hover:text-brand transition"
+                                                        title="Mesaj Gönder"
+                                                    >
+                                                        <Icon name="message-circle" size={16} />
+                                                    </button>
+                                                    <button 
+                                                        onClick={(e) => openReportModal(e, post)}
+                                                        className="p-2 rounded-full hover:bg-red-50 text-gray-400 hover:text-red-500 transition"
+                                                        title="Şikayet Et"
+                                                    >
+                                                        <Icon name="flag" size={16} />
+                                                    </button>
+                                                </>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                        {filteredPosts.length === 0 && (
+                            <div className="text-center py-10 text-gray-400">
+                                <Icon name="search" size={40} className="mx-auto mb-2 opacity-20" />
+                                <p>Bu kategoride henüz ilan yok.</p>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* NEW: WHATSAPP STYLE INBOX MODAL */}
+                    <Modal isOpen={showInboxModal} onClose={() => { setShowInboxModal(false); setSelectedChatUser(null); }} title="İletişim Merkezi" maxWidth="max-w-2xl">
+                        <div className="flex flex-col h-[70vh]">
+                            
+                            {/* Tab Navigation */}
+                            {!selectedChatUser && (
+                                <div className="flex border-b border-gray-200 mb-2">
+                                    <button 
+                                        className={`flex-1 py-3 font-bold text-sm transition ${inboxTab === 'messages' ? 'text-brand border-b-2 border-brand bg-brand/5' : 'text-gray-500 hover:bg-gray-50'}`}
+                                        onClick={() => setInboxTab('messages')}
+                                    >
+                                        <div className="flex items-center justify-center gap-2">
+                                            <Icon name="message-circle" size={16}/> Mesajlar
+                                        </div>
+                                    </button>
+                                    <button 
+                                        className={`flex-1 py-3 font-bold text-sm transition ${inboxTab === 'reports' ? 'text-brand border-b-2 border-brand bg-brand/5' : 'text-gray-500 hover:bg-gray-50'}`}
+                                        onClick={() => setInboxTab('reports')}
+                                    >
+                                        <div className="flex items-center justify-center gap-2">
+                                            <Icon name="alert-circle" size={16}/> Şikayetlerim
+                                        </div>
+                                    </button>
+                                </div>
+                            )}
+
+                            {/* Content Area */}
+                            <div className="flex-1 overflow-hidden relative">
+                                
+                                {/* Reports Tab */}
+                                {inboxTab === 'reports' && !selectedChatUser && (
+                                    <div className="h-full overflow-y-auto p-2 space-y-3">
+                                        {myReports.length === 0 ? (
+                                            <div className="flex flex-col items-center justify-center h-full text-gray-400">
+                                                <Icon name="check-circle" size={48} className="mb-2 opacity-20" />
+                                                <p className="text-sm">Henüz bir şikayet bildiriminiz yok.</p>
+                                            </div>
+                                        ) : (
+                                            myReports.map(rep => (
+                                                <div key={rep.id} className="bg-white p-3 rounded-lg border border-gray-100 shadow-sm">
+                                                    <div className="flex justify-between items-start mb-2">
+                                                        <span className="text-xs font-bold uppercase bg-gray-100 text-gray-600 px-2 py-0.5 rounded">{rep.reason}</span>
+                                                        {rep.status === 'pending' ? (
+                                                            <span className="text-[10px] bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                                                <span className="w-1.5 h-1.5 bg-yellow-500 rounded-full"></span> Beklemede
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                                                <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span> Çözüldü
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <p className="text-sm text-gray-600 italic line-clamp-2">"{rep.description}"</p>
+                                                    <div className="mt-2 text-[10px] text-gray-400 text-right border-t pt-1">
+                                                        {formatDate(rep.createdAt)}
+                                                    </div>
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* Messages Tab (Contact List) */}
+                                {inboxTab === 'messages' && !selectedChatUser && (
+                                    <div className="h-full overflow-y-auto p-2 space-y-2">
+                                        {conversations.length === 0 ? (
+                                            <div className="flex flex-col items-center justify-center h-full text-gray-400">
+                                                <Icon name="inbox" size={48} className="mb-2 opacity-20" />
+                                                <p className="text-sm">Henüz bir mesajlaşma başlatmadınız.</p>
+                                            </div>
+                                        ) : (
+                                            conversations.map(conv => (
+                                                <div 
+                                                    key={conv.user.id} 
+                                                    onClick={() => setSelectedChatUser(conv.user)}
+                                                    className="bg-white p-3 rounded-xl border border-gray-100 hover:border-brand hover:shadow-md transition cursor-pointer flex items-center gap-3"
+                                                >
+                                                    <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center text-xl overflow-hidden flex-shrink-0">
+                                                        {conv.user.profileImage ? <img src={conv.user.profileImage} className="w-full h-full object-cover"/> : '👤'}
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex justify-between items-center mb-1">
+                                                            <h4 className="font-bold text-sm truncate text-gray-800">{conv.user.name} {conv.user.surname}</h4>
+                                                            <span className="text-[10px] text-gray-400 whitespace-nowrap ml-2">{formatDate(conv.lastMessage.createdAt)}</span>
+                                                        </div>
+                                                        <p className="text-xs text-gray-500 truncate">{conv.lastMessage.message}</p>
+                                                    </div>
+                                                    <Icon name="chevron-right" size={16} className="text-gray-300" />
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* ACTIVE CHAT WINDOW (WhatsApp Style) */}
+                                {selectedChatUser && (
+                                    <div className="absolute inset-0 bg-gray-50 flex flex-col z-20 animate-fade-in">
+                                        {/* Chat Header */}
+                                        <div className="bg-white border-b p-3 flex items-center gap-3 shadow-sm">
+                                            <button onClick={() => setSelectedChatUser(null)} className="text-gray-500 hover:bg-gray-100 p-2 rounded-full">
+                                                <Icon name="arrow-left" size={20} />
+                                            </button>
+                                            <div 
+                                                className="flex items-center gap-3 flex-1 cursor-pointer hover:opacity-80 transition"
+                                                onClick={() => {
+                                                    setShowInboxModal(false);
+                                                    onViewProfile(selectedChatUser.id);
+                                                }}
+                                            >
+                                                <div className="w-10 h-10 bg-gray-200 rounded-full overflow-hidden flex-shrink-0">
+                                                    {selectedChatUser.profileImage ? <img src={selectedChatUser.profileImage} className="w-full h-full object-cover"/> : <div className="w-full h-full flex items-center justify-center">👤</div>}
+                                                </div>
+                                                <div>
+                                                    <h3 className="font-bold text-sm text-gray-800">{selectedChatUser.name} {selectedChatUser.surname}</h3>
+                                                    <span className="text-[10px] text-green-500 flex items-center gap-1">
+                                                        <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span> Çevrimiçi
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Chat Messages Area */}
+                                        <div className="flex-1 overflow-y-auto p-4 space-y-3 chat-area">
+                                            {activeChatMessages.map(msg => {
+                                                const isMe = msg.senderId === currentUser.id;
+                                                return (
+                                                    <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'} group`}>
+                                                        <div className={`max-w-[80%] rounded-lg p-2 shadow-sm relative text-sm ${isMe ? 'bg-chat-sent text-gray-800 rounded-tr-none' : 'bg-white text-gray-800 rounded-tl-none'}`}>
+                                                            {!isMe && <div className="text-[10px] font-bold text-orange-500 mb-0.5">{selectedChatUser.name}</div>}
+                                                            <p className="leading-relaxed whitespace-pre-wrap break-words">{msg.message}</p>
+                                                            <div className="flex justify-end items-center gap-1 mt-1">
+                                                                <span className="text-[9px] text-gray-400">{new Date(msg.createdAt).toLocaleTimeString('tr-TR', {hour: '2-digit', minute:'2-digit'})}</span>
+                                                                {isMe && <Icon name="check" size={10} className="text-blue-500" />}
+                                                            </div>
+                                                            
+                                                            {/* Delete Action */}
+                                                            <button 
+                                                                onClick={() => handleMessageDelete(msg.id)}
+                                                                className={`absolute top-0 ${isMe ? '-left-8' : '-right-8'} p-1.5 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition`}
+                                                                title="Sil"
+                                                            >
+                                                                <Icon name="trash-2" size={14} />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                            <div ref={messagesEndRef} />
+                                        </div>
+
+                                        {/* Input Area */}
+                                        <div className="bg-white border-t p-3">
+                                            <div className="flex items-center gap-2">
+                                                <input 
+                                                    type="text" 
+                                                    className="flex-1 bg-gray-100 border-0 rounded-full px-4 py-3 text-sm focus:ring-2 focus:ring-brand/50 focus:outline-none focus:bg-white transition"
+                                                    placeholder="Bir mesaj yazın..."
+                                                    value={chatInput}
+                                                    onChange={e => setChatInput(e.target.value)}
+                                                    onKeyDown={e => e.key === 'Enter' && handleChatSend()}
+                                                />
+                                                <button 
+                                                    onClick={handleChatSend}
+                                                    disabled={!chatInput.trim()}
+                                                    className="bg-brand text-white p-3 rounded-full hover:bg-brand-dark transition disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                                                >
+                                                    <Icon name="send" size={18} />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </Modal>
+
+                    {/* Feed Modals */}
+                    <Modal isOpen={showMsgModal} onClose={() => setShowMsgModal(false)} title="Mesaj Gönder">
+                        <div className="space-y-4">
+                            <p className="text-sm text-gray-600">
+                                <strong>{activePost?.title}</strong> ilanı için mesajınız:
+                            </p>
+                            <textarea className="w-full border p-2 rounded h-32" placeholder="Mesajınız..." value={msgText} onChange={e => setMsgText(e.target.value)}></textarea>
+                            <button onClick={handleSendMsg} className="w-full bg-brand text-white py-2 rounded">Gönder</button>
+                        </div>
+                    </Modal>
+
+                    <Modal isOpen={showReportModal} onClose={() => setShowReportModal(false)} title="İlanı Şikayet Et">
+                        <div className="space-y-4">
+                            <p className="text-sm text-gray-600">
+                                <strong>{activePost?.title}</strong> ilanını neden şikayet ediyorsunuz?
+                            </p>
+                            <select className="w-full border p-2 rounded" value={reportData.reason} onChange={e => setReportData({...reportData, reason: e.target.value})}>
+                                <option value="spam">Spam / Reklam</option>
+                                <option value="fake">Sahte Bilgi</option>
+                                <option value="scam">Dolandırıcılık</option>
+                                <option value="inappropriate">Uygunsuz İçerik</option>
+                            </select>
+                            <textarea className="w-full border p-2 rounded h-24" placeholder="Açıklama..." value={reportData.description} onChange={e => setReportData({...reportData, description: e.target.value})} required></textarea>
+                            <button onClick={handleReport} className="w-full bg-red-500 text-white py-2 rounded hover:bg-red-600">Gönder</button>
+                        </div>
+                    </Modal>
+                </div>
+            );
+        };
+
+        // Profile & My Posts
+        const Profile = ({ currentUser, onLogout, onUpdateUser }) => {
+            const [activeTab, setActiveTab] = useState('info');
+            const [myPosts, setMyPosts] = useState([]);
+            const [favPosts, setFavPosts] = useState([]);
+            const [isEditing, setIsEditing] = useState(false);
+            const [editForm, setEditForm] = useState({...currentUser});
+            
+            // SİLME İŞLEMİ İÇİN YENİ STATE'LER
+            const [showDeleteModal, setShowDeleteModal] = useState(false);
+            const [postToDelete, setPostToDelete] = useState(null);
+
+            // ŞİFRE DEĞİŞTİRME STATE'LERİ
+            const [showPasswordModal, setShowPasswordModal] = useState(false);
+            const [passForm, setPassForm] = useState({ current: '', new: '', confirm: '' });
+
+            const fileInputRef = useRef(null);
+            
+            useEffect(() => {
+                const load = async () => {
+                    // Load My Posts
+                    const all = await api.posts.getAll();
+                    setMyPosts(all.filter(p => p.userId === currentUser.id));
+
+                    // Load Favorite Posts
+                    const myFavs = await api.favorites.getMy(currentUser.id);
+                    const favPostIds = myFavs.filter(f => f.targetType === 'post').map(f => f.targetId);
+                    setFavPosts(all.filter(p => favPostIds.includes(p.id)));
+                };
+                load();
+                setEditForm({...currentUser});
+            }, [currentUser]);
+
+            // ESKİ DELETE YERİNE YENİ FONKSİYONLAR
+            const handleDeleteClick = (id) => {
+                setPostToDelete(id);
+                setShowDeleteModal(true);
+            };
+
+            const confirmDelete = async () => {
+                if(postToDelete) {
+                    await api.posts.delete(postToDelete);
+                    setMyPosts(myPosts.filter(p => p.id !== postToDelete));
+                    setShowDeleteModal(false);
+                    setPostToDelete(null);
+                }
+            };
+
+            // ŞİFRE GÜNCELLEME FONKSİYONU
+            const handlePasswordUpdate = async (e) => {
+                e.preventDefault();
+                
+                if (passForm.current !== currentUser.password) {
+                    alert("Mevcut şifreniz hatalı. Lütfen kontrol ediniz.");
+                    return;
+                }
+
+                if (passForm.new.length < 6) {
+                    alert("Yeni şifreniz en az 6 karakter olmalıdır.");
+                    return;
+                }
+
+                if (passForm.new !== passForm.confirm) {
+                    alert("Yeni şifreler birbiriyle uyuşmuyor.");
+                    return;
+                }
+
+                try {
+                    const updatedUser = { ...currentUser, password: passForm.new };
+                    await api.users.update(updatedUser);
+                    if (onUpdateUser) onUpdateUser(updatedUser);
+                    
+                    setShowPasswordModal(false);
+                    setPassForm({ current: '', new: '', confirm: '' });
+                    alert("Şifreniz başarıyla güncellendi.");
+                } catch (error) {
+                    console.error("Şifre güncellenemedi:", error);
+                    alert("Bir hata oluştu.");
+                }
+            };
+
+            // 90 Day Logic
+            const canChangeName = () => {
+                if(!currentUser.lastNameChange) return true;
+                const lastChange = new Date(currentUser.lastNameChange);
+                const now = new Date();
+                const diffTime = Math.abs(now - lastChange);
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                return diffDays >= 90;
+            };
+            
+            const daysRemaining = () => {
+                if(!currentUser.lastNameChange) return 0;
+                const lastChange = new Date(currentUser.lastNameChange);
+                const now = new Date();
+                const diffTime = Math.abs(now - lastChange);
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                return 90 - diffDays;
+            };
+
+            const handleImageUpload = (e) => {
+                const file = e.target.files[0];
+                if(file) {
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                        setEditForm({...editForm, profileImage: reader.result});
+                    };
+                    reader.readAsDataURL(file);
+                }
+            };
+
+            const saveProfile = async () => {
+                // Check name change rule
+                let updatedUser = {...editForm};
+                const nameChanged = editForm.name !== currentUser.name || editForm.surname !== currentUser.surname;
+                
+                if (nameChanged) {
+                    if (!canChangeName()) {
+                        alert(`İsim değişikliği için ${daysRemaining()} gün daha beklemelisiniz.`);
+                        return;
+                    }
+                    updatedUser.lastNameChange = new Date().toISOString();
+                }
+
+                await api.users.update(updatedUser);
+                // Update global user state via prop
+                if (onUpdateUser) onUpdateUser(updatedUser);
+                setIsEditing(false);
+                alert('Profil güncellendi.');
+            };
+
+            return (
+                <div className="bg-gray-50 min-h-screen pb-24">
+                    {/* Header & Profile Image */}
+                    <div className="bg-white p-6 mb-4 shadow-sm relative">
+                        <div className="flex items-center gap-4">
+                            <div className="relative group">
+                                <div className="w-20 h-20 bg-gray-200 rounded-full overflow-hidden border-2 border-gray-100">
+                                    {editForm.profileImage ? <img src={editForm.profileImage} className="w-full h-full object-cover"/> : <div className="w-full h-full flex items-center justify-center text-3xl">👤</div>}
+                                </div>
+                                {isEditing && (
+                                    <button onClick={() => fileInputRef.current.click()} className="absolute inset-0 bg-black/30 flex items-center justify-center text-white rounded-full opacity-0 group-hover:opacity-100 transition">
+                                        <Icon name="camera" size={20} />
+                                    </button>
+                                )}
+                                <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleImageUpload} />
+                            </div>
+                            
+                            <div className="flex-1">
+                                <h2 className="text-xl font-bold">{currentUser.name} {currentUser.surname}</h2>
+                                <p className="text-gray-500 text-sm">{currentUser.email}</p>
+                                <div className="flex gap-2 mt-2">
+                                    {currentUser.isSponsored && <span className="bg-yellow-100 text-yellow-700 text-xs px-2 py-0.5 rounded">VIP</span>}
+                                    <span className="bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded">Üye</span>
+                                </div>
+                            </div>
+                            
+                            {!isEditing && (
+                                <button onClick={() => setIsEditing(true)} className="text-brand font-bold text-sm bg-brand/5 px-3 py-1 rounded-full">Düzenle</button>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Tabs */}
+                    <div className="flex bg-white border-b mb-4">
+                        <button onClick={() => setActiveTab('info')} className={`flex-1 py-3 font-medium text-sm border-b-2 ${activeTab === 'info' ? 'border-brand text-brand' : 'border-transparent'}`}>Bilgilerim</button>
+                        <button onClick={() => setActiveTab('posts')} className={`flex-1 py-3 font-medium text-sm border-b-2 ${activeTab === 'posts' ? 'border-brand text-brand' : 'border-transparent'}`}>İlanlarım</button>
+                        <button onClick={() => setActiveTab('favs')} className={`flex-1 py-3 font-medium text-sm border-b-2 ${activeTab === 'favs' ? 'border-brand text-brand' : 'border-transparent'}`}>Favorilerim</button>
+                    </div>
+
+                    <div className="p-4">
+                        {/* INFO TAB */}
+                        {activeTab === 'info' && (
+                            <div className="space-y-4 animate-fade-in">
+                                {isEditing ? (
+                                    <div className="space-y-4">
+                                        <div className="bg-yellow-50 p-3 rounded text-xs text-yellow-700">
+                                            <Icon name="alert-circle" size={12} className="inline mr-1"/>
+                                            Ad ve Soyad değişikliği 90 günde bir yapılabilir.
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="block text-xs font-bold mb-1">Ad</label>
+                                                <input type="text" disabled={!canChangeName()} className="w-full border p-2 rounded disabled:bg-gray-100 disabled:text-gray-400" value={editForm.name} onChange={e => setEditForm({...editForm, name: e.target.value})} />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-bold mb-1">Soyad</label>
+                                                <input type="text" disabled={!canChangeName()} className="w-full border p-2 rounded disabled:bg-gray-100 disabled:text-gray-400" value={editForm.surname} onChange={e => setEditForm({...editForm, surname: e.target.value})} />
+                                            </div>
+                                        </div>
+                                        {!canChangeName() && <p className="text-xs text-red-500">İsim değiştirmek için {daysRemaining()} gün beklemelisiniz.</p>}
+
+                                        <div>
+                                            <label className="block text-xs font-bold mb-1">Hakkında</label>
+                                            <textarea className="w-full border p-2 rounded h-24" value={editForm.about || ''} onChange={e => setEditForm({...editForm, about: e.target.value})} placeholder="Kendinizden bahsedin..."></textarea>
+                                        </div>
+                                        
+                                        <div>
+                                            <label className="block text-xs font-bold mb-1">Telefon / İletişim</label>
+                                            <input type="text" className="w-full border p-2 rounded" value={editForm.phone || ''} onChange={e => setEditForm({...editForm, phone: e.target.value})} placeholder="0555..." />
+                                        </div>
+
+                                        {/* NEW: Professional Info Edit */}
+                                        <div className="border-t pt-4 mt-4">
+                                            <h4 className="font-bold text-sm mb-3 text-gray-700">Profesyonel Bilgiler</h4>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div>
+                                                    <label className="block text-xs font-bold mb-1">Araç Tipi</label>
+                                                    <select className="w-full border p-2 rounded" value={editForm.vehicleType || ''} onChange={e => setEditForm({...editForm, vehicleType: e.target.value})}>
+                                                        <option value="">Seçiniz</option>
+                                                        {VEHICLE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                                                    </select>
+                                                </div>
+                                                <div>
+                                                    <label className="block text-xs font-bold mb-1">Koltuk Sayısı</label>
+                                                    <select className="w-full border p-2 rounded" value={editForm.vehicleSeats || ''} onChange={e => setEditForm({...editForm, vehicleSeats: e.target.value})}>
+                                                        <option value="">Seçiniz</option>
+                                                        <option value="9-16">9-16</option>
+                                                        <option value="17-31">17-31</option>
+                                                        <option value="32+">32+</option>
+                                                        <option value="45+">45+</option>
+                                                    </select>
+                                                </div>
+                                                <div>
+                                                    <label className="block text-xs font-bold mb-1">Ehliyet Sınıfı</label>
+                                                    <select className="w-full border p-2 rounded" value={editForm.licenseClass || ''} onChange={e => setEditForm({...editForm, licenseClass: e.target.value})}>
+                                                        <option value="">Seçiniz</option>
+                                                        <option value="B">B</option>
+                                                        <option value="C">C</option>
+                                                        <option value="D">D</option>
+                                                        <option value="E">E</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="pt-4 border-t mt-2">
+                                            <button 
+                                                type="button" 
+                                                onClick={() => setShowPasswordModal(true)}
+                                                className="w-full bg-gray-700 text-white py-2 rounded font-bold hover:bg-gray-800 transition flex items-center justify-center gap-2 mb-3"
+                                            >
+                                                <Icon name="lock" size={16} /> Şifre Değiştir
+                                            </button>
+                                        </div>
+
+                                        <div className="flex gap-3 pt-2">
+                                            <button onClick={saveProfile} className="flex-1 bg-brand text-white py-2 rounded font-bold">Kaydet</button>
+                                            <button onClick={() => { setIsEditing(false); setEditForm({...currentUser}); }} className="flex-1 bg-gray-200 text-gray-700 py-2 rounded font-bold">İptal</button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div className="bg-white p-4 rounded-xl shadow-sm">
+                                            <h3 className="font-bold mb-2 text-gray-800">Hakkında</h3>
+                                            <p className="text-gray-600 text-sm leading-relaxed">{currentUser.about || 'Henüz bilgi girilmedi.'}</p>
+                                        </div>
+                                        
+                                        {/* NEW: Professional Info View */}
+                                        {(currentUser.vehicleType || currentUser.licenseClass || currentUser.vehicleSeats) && (
+                                            <div className="bg-white p-4 rounded-xl shadow-sm mt-4">
+                                                <h3 className="font-bold mb-2 text-gray-800">Profesyonel Bilgiler</h3>
+                                                <div className="grid grid-cols-3 gap-2 text-center">
+                                                    {currentUser.vehicleType && (
+                                                        <div className="bg-gray-50 p-2 rounded border border-gray-100">
+                                                            <div className="text-xs text-gray-400 mb-1">Araç</div>
+                                                            <div className="font-bold text-sm text-gray-800">{currentUser.vehicleType}</div>
+                                                        </div>
+                                                    )}
+                                                    {currentUser.vehicleSeats && (
+                                                        <div className="bg-gray-50 p-2 rounded border border-gray-100">
+                                                            <div className="text-xs text-gray-400 mb-1">Koltuk</div>
+                                                            <div className="font-bold text-sm text-gray-800">{currentUser.vehicleSeats}</div>
+                                                        </div>
+                                                    )}
+                                                    {currentUser.licenseClass && (
+                                                        <div className="bg-gray-50 p-2 rounded border border-gray-100">
+                                                            <div className="text-xs text-gray-400 mb-1">Ehliyet</div>
+                                                            <div className="font-bold text-sm text-gray-800">{currentUser.licenseClass}</div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        <div className="bg-white p-4 rounded-xl shadow-sm">
+                                            <h3 className="font-bold mb-2 text-gray-800">İletişim</h3>
+                                            <div className="flex items-center gap-2 text-sm text-gray-600">
+                                                <Icon name="phone" size={16} /> {currentUser.phone || 'Belirtilmedi'}
+                                            </div>
+                                            <div className="flex items-center gap-2 text-sm text-gray-600 mt-2">
+                                                <Icon name="mail" size={16} /> {currentUser.email}
+                                            </div>
+                                        </div>
+                                        <button onClick={onLogout} className="w-full bg-red-50 text-red-600 py-3 rounded-lg font-medium hover:bg-red-100 transition">Çıkış Yap</button>
+                                    </>
+                                )}
+                            </div>
+                        )}
+
+                        {/* MY POSTS TAB */}
+                        {activeTab === 'posts' && (
+                            <div className="space-y-3 animate-fade-in">
+                                {myPosts.map(post => (
+                                    <div key={post.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+                                        <div className="flex justify-between items-start">
+                                            <div>
+                                                <h4 className="font-bold text-gray-800">{post.title}</h4>
+                                                <span className={`text-xs px-2 py-0.5 rounded ${post.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100'}`}>{post.status}</span>
+                                                {isPostExpired(post.createdAt) && <span className="ml-2 text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded">Süresi Doldu</span>}
+                                            </div>
+                                            <div className="flex gap-2">
+                                                {/* SİLME BUTONUNDA DEĞİŞİKLİK */}
+                                                <button onClick={() => handleDeleteClick(post.id)} className="p-2 text-red-500 bg-red-50 rounded hover:bg-red-100"><Icon name="trash" size={16} /></button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                                {myPosts.length === 0 && <div className="text-center text-gray-400 mt-4">İlanınız bulunmuyor.</div>}
+                            </div>
+                        )}
+
+                        {/* FAVORITES TAB */}
+                        {activeTab === 'favs' && (
+                            <div className="space-y-3 animate-fade-in">
+                                {favPosts.map(post => (
+                                    <div key={post.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center">
+                                        <div className="flex-1">
+                                            <h4 className="font-bold text-gray-800 line-clamp-1">{post.title}</h4>
+                                            <p className="text-xs text-gray-500">{post.location.address}</p>
+                                            <span className="text-xs text-brand bg-brand/5 px-2 py-0.5 rounded mt-1 inline-block">{post.category}</span>
+                                        </div>
+                                        <button className="bg-brand text-white px-4 py-2 rounded-lg text-sm font-bold" onClick={() => {}}>
+                                            İncele
+                                        </button>
+                                    </div>
+                                ))}
+                                {favPosts.length === 0 && <div className="text-center text-gray-400 mt-10 flex flex-col items-center">
+                                    <Icon name="heart" size={30} className="mb-2 opacity-20"/>
+                                    <p>Favori ilanınız yok.</p>
+                                </div>}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* YENİ SİLME ONAY MODALI */}
+                    <Modal isOpen={showDeleteModal} onClose={() => setShowDeleteModal(false)} title="İlanı Sil">
+                        <div className="space-y-4">
+                            <p className="text-sm text-gray-600">Bu ilanı kalıcı olarak silmek istediğinize emin misiniz? Bu işlem geri alınamaz.</p>
+                            <div className="flex gap-3">
+                                <button onClick={confirmDelete} className="flex-1 bg-red-500 text-white py-2 rounded font-bold hover:bg-red-600 transition">Evet, Sil</button>
+                                <button onClick={() => setShowDeleteModal(false)} className="flex-1 bg-gray-200 text-gray-800 py-2 rounded font-bold hover:bg-gray-300 transition">İptal</button>
+                            </div>
+                        </div>
+                    </Modal>
+
+                    {/* ŞİFRE DEĞİŞTİRME MODALI */}
+                    <Modal isOpen={showPasswordModal} onClose={() => setShowPasswordModal(false)} title="Şifre Değiştir">
+                        <form onSubmit={handlePasswordUpdate} className="space-y-4">
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 mb-1">Mevcut Şifre</label>
+                                <input 
+                                    type="password" 
+                                    required 
+                                    className="w-full border p-3 rounded-lg bg-gray-50 focus:bg-white transition focus:ring-2 focus:ring-brand focus:outline-none"
+                                    value={passForm.current}
+                                    onChange={e => setPassForm({...passForm, current: e.target.value})}
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 mb-1">Yeni Şifre</label>
+                                <input 
+                                    type="password" 
+                                    required 
+                                    className="w-full border p-3 rounded-lg bg-gray-50 focus:bg-white transition focus:ring-2 focus:ring-brand focus:outline-none"
+                                    value={passForm.new}
+                                    onChange={e => setPassForm({...passForm, new: e.target.value})}
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 mb-1">Yeni Şifre (Tekrar)</label>
+                                <input 
+                                    type="password" 
+                                    required 
+                                    className="w-full border p-3 rounded-lg bg-gray-50 focus:bg-white transition focus:ring-2 focus:ring-brand focus:outline-none"
+                                    value={passForm.confirm}
+                                    onChange={e => setPassForm({...passForm, confirm: e.target.value})}
+                                />
+                            </div>
+                            <button className="w-full bg-brand text-white py-3 rounded-xl font-bold hover:bg-brand-dark transition shadow-lg mt-2">
+                                Şifreyi Güncelle
+                            </button>
+                        </form>
+                    </Modal>
+                </div>
+            );
+        };
+
+        // ENHANCED Admin Panel
+        const AdminPanel = ({ onBack }) => {
+            const [activeTab, setActiveTab] = useState('dashboard');
+            const [users, setUsers] = useState([]);
+            const [posts, setPosts] = useState([]);
+            const [reports, setReports] = useState([]);
+
+            const loadData = async () => {
+                const u = await api.users.getAll();
+                const p = await api.posts.getAll();
+                const r = await api.reports.getAll();
+                setUsers(u);
+                setPosts(p);
+                setReports(r);
+            };
+
+            useEffect(() => {
+                loadData();
+            }, []);
+
+            const resolveReport = async (id) => {
+                const report = reports.find(r => r.id === id);
+                if (report) {
+                    report.status = 'resolved';
+                    await api.reports.update(report);
+                    loadData();
+                }
+            };
+
+            // User Management Functions
+            const toggleVip = async (user) => {
+                user.isSponsored = !user.isSponsored;
+                await api.users.update(user);
+                loadData();
+            };
+
+            const deleteUser = async (id) => {
+                if(confirm("Bu kullanıcıyı ve tüm verilerini silmek istediğinize emin misiniz?")) {
+                    await api.users.delete(id);
+                    // Optionally delete their posts too
+                    loadData();
+                }
+            };
+
+            // Post Management Functions
+            const toggleSponsoredPost = async (post) => {
+                post.isSponsored = !post.isSponsored;
+                await api.posts.update(post);
+                loadData();
+            };
+
+            const deletePost = async (id) => {
+                if(confirm("Bu ilanı silmek istediğinize emin misiniz?")) {
+                    await api.posts.delete(id);
+                    loadData();
+                }
+            };
+
+            return (
+                <div className="bg-gray-100 min-h-screen pb-20 flex flex-col">
+                    <div className="bg-gray-900 text-white p-6 shadow-md">
+                        <div className="flex justify-between items-center">
+                            <div>
+                                <h1 className="text-2xl font-bold">Admin Paneli</h1>
+                                <p className="opacity-70 text-sm">Sistem Yönetimi</p>
+                            </div>
+                            <button onClick={onBack} className="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded text-sm font-bold">Çıkış</button>
+                        </div>
+                    </div>
+
+                    {/* Navigation Tabs */}
+                    <div className="flex bg-white shadow-sm mb-4 overflow-x-auto">
+                        <button onClick={() => setActiveTab('dashboard')} className={`flex-1 py-3 font-bold text-sm border-b-2 ${activeTab === 'dashboard' ? 'border-brand text-brand' : 'border-transparent text-gray-500'}`}>Özet</button>
+                        <button onClick={() => setActiveTab('users')} className={`flex-1 py-3 font-bold text-sm border-b-2 ${activeTab === 'users' ? 'border-brand text-brand' : 'border-transparent text-gray-500'}`}>Kullanıcılar</button>
+                        <button onClick={() => setActiveTab('posts')} className={`flex-1 py-3 font-bold text-sm border-b-2 ${activeTab === 'posts' ? 'border-brand text-brand' : 'border-transparent text-gray-500'}`}>İlanlar</button>
+                        <button onClick={() => setActiveTab('reports')} className={`flex-1 py-3 font-bold text-sm border-b-2 ${activeTab === 'reports' ? 'border-brand text-brand' : 'border-transparent text-gray-500'}`}>Şikayetler</button>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto p-4">
+                        {/* DASHBOARD TAB */}
+                        {activeTab === 'dashboard' && (
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 animate-fade-in">
+                                <div className="bg-white p-6 rounded-lg shadow text-center">
+                                    <div className="text-3xl font-bold text-brand">{users.length}</div>
+                                    <div className="text-sm text-gray-500">Toplam Kullanıcı</div>
+                                </div>
+                                <div className="bg-white p-6 rounded-lg shadow text-center">
+                                    <div className="text-3xl font-bold text-blue-500">{posts.length}</div>
+                                    <div className="text-sm text-gray-500">Toplam İlan</div>
+                                </div>
+                                <div className="bg-white p-6 rounded-lg shadow text-center">
+                                    <div className="text-3xl font-bold text-green-500">{posts.filter(p => p.isSponsored).length}</div>
+                                    <div className="text-sm text-gray-500">Öne Çıkan İlan</div>
+                                </div>
+                                <div className="bg-white p-6 rounded-lg shadow text-center">
+                                    <div className="text-3xl font-bold text-red-500">{reports.filter(r => r.status === 'pending').length}</div>
+                                    <div className="text-sm text-gray-500">Bekleyen Şikayet</div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* USERS TAB */}
+                        {activeTab === 'users' && (
+                            <div className="space-y-3 animate-fade-in">
+                                {users.map(u => (
+                                    <div key={u.id} className="bg-white p-4 rounded-lg shadow-sm flex items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center text-lg">
+                                                {u.profileImage ? <img src={u.profileImage} className="w-full h-full rounded-full object-cover"/> : '👤'}
+                                            </div>
+                                            <div>
+                                                <div className="font-bold text-sm">{u.name} {u.surname} {u.role === 'admin' && <span className="bg-black text-white text-[10px] px-1 rounded">ADMIN</span>}</div>
+                                                <div className="text-xs text-gray-500">{u.email}</div>
+                                            </div>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            {u.role !== 'admin' && (
+                                                <>
+                                                    <button onClick={() => toggleVip(u)} className={`px-3 py-1 rounded text-xs font-bold ${u.isSponsored ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600'}`}>
+                                                        {u.isSponsored ? 'VIP İptal' : 'VIP Yap'}
+                                                    </button>
+                                                    <button onClick={() => deleteUser(u.id)} className="bg-red-50 text-red-500 p-2 rounded hover:bg-red-100">
+                                                        <Icon name="trash" size={14} />
+                                                    </button>
+                                                </>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* POSTS TAB */}
+                        {activeTab === 'posts' && (
+                            <div className="space-y-3 animate-fade-in">
+                                {posts.map(p => (
+                                    <div key={p.id} className="bg-white p-4 rounded-lg shadow-sm">
+                                        <div className="flex justify-between items-start mb-2">
+                                            <h4 className="font-bold text-sm line-clamp-1">{p.title}</h4>
+                                            <span className={`text-[10px] px-2 py-0.5 rounded ${p.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100'}`}>{p.status}</span>
+                                        </div>
+                                        <div className="text-xs text-gray-500 mb-3">{p.location.address}</div>
+                                        <div className="flex justify-end gap-2 border-t pt-2">
+                                            <button onClick={() => toggleSponsoredPost(p)} className={`px-3 py-1 rounded text-xs font-bold flex items-center gap-1 ${p.isSponsored ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600'}`}>
+                                                <Icon name="star" size={12} /> {p.isSponsored ? 'Öne Çıkarma' : 'Öne Çıkar'}
+                                            </button>
+                                            <button onClick={() => deletePost(p.id)} className="bg-red-50 text-red-500 px-3 py-1 rounded text-xs font-bold hover:bg-red-100">
+                                                Sil
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* REPORTS TAB */}
+                        {activeTab === 'reports' && (
+                            <div className="space-y-3 animate-fade-in">
+                                {reports.filter(r => r.status === 'pending').map(r => (
+                                    <div key={r.id} className="bg-white p-4 rounded-lg shadow-sm border-l-4 border-red-500">
+                                        <div className="flex justify-between mb-2">
+                                            <span className="bg-red-100 text-red-700 text-xs px-2 py-1 rounded uppercase font-bold">{r.reason}</span>
+                                            <span className="text-xs text-gray-400">{formatDate(r.createdAt)}</span>
+                                        </div>
+                                        <p className="text-sm text-gray-700 mb-3">{r.description}</p>
+                                        <button onClick={() => resolveReport(r.id)} className="w-full bg-green-100 text-green-700 py-2 rounded text-sm font-bold hover:bg-green-200">
+                                            Çözüldü İşaretle
+                                        </button>
+                                    </div>
+                                ))}
+                                {reports.filter(r => r.status === 'pending').length === 0 && <div className="text-center text-gray-400 py-10">Bekleyen şikayet yok 🎉</div>}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
+        // --- MAIN APP SHELL --- (LocalStorage Düzeltmesiyle Güncel)
+        const App = () => {
+            // LocalStorage kullanılarak oturumun kalıcı olması sağlanıyor
+            const [user, setUser] = useState(() => {
+                const stored = localStorage.getItem('currentUser');
+                return stored ? JSON.parse(stored) : null;
+            });
+
+            const [activeTab, setActiveTab] = useState('home'); 
+            const [detailPost, setDetailPost] = useState(null);
+            const [editingPost, setEditingPost] = useState(null);
+            const [viewingUser, setViewingUser] = useState(null); 
+
+            const handleLogin = (u) => {
+                setUser(u);
+                localStorage.setItem('currentUser', JSON.stringify(u));
+            };
+
+            const handleLogout = () => {
+                setUser(null);
+                localStorage.removeItem('currentUser');
+                setActiveTab('home');
+            };
+
+            const handleUpdateUser = (updatedUser) => {
+                setUser(updatedUser);
+                localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+            };
+
+            const navigateToDetail = (post) => {
+                setDetailPost(post);
+                setActiveTab('detail');
+            };
+
+            const handleEdit = (post) => {
+                setEditingPost(post);
+                setActiveTab('create');
+            };
+
+            const handleViewProfile = (userId) => {
+                setViewingUser(userId);
+                setActiveTab('public-profile');
+            }
+
+            if (!user) return <AuthPage onLogin={handleLogin} />;
+
+            if (user.role === 'admin' && activeTab === 'admin') {
+                return <AdminPanel onBack={() => setActiveTab('home')} />;
+            }
+
+            return (
+                <div className="h-full flex flex-col bg-gray-50 max-w-2xl mx-auto shadow-2xl min-h-screen relative">
+                    
+                    {/* Content Area */}
+                    <div className="flex-1 overflow-y-auto scroll-smooth">
+                        {activeTab === 'home' && <Feed currentUser={user} onItemClick={navigateToDetail} onViewProfile={handleViewProfile} />}
+                        {activeTab === 'create' && <CreatePost currentUser={user} editPost={editingPost} onComplete={() => { setEditingPost(null); setActiveTab('home'); }} />}
+                        {activeTab === 'profile' && <Profile currentUser={user} onLogout={handleLogout} onUpdateUser={handleUpdateUser} />}
+                        {activeTab === 'detail' && detailPost && <PostDetail post={detailPost} currentUser={user} onBack={() => setActiveTab('home')} onEdit={handleEdit} onViewProfile={handleViewProfile} />}
+                        {activeTab === 'public-profile' && viewingUser && <PublicProfile userId={viewingUser} onBack={() => setActiveTab('home')} />}
+                    </div>
+
+                    {/* Bottom Navigation (only show if not in detail view) */}
+                    {activeTab !== 'detail' && activeTab !== 'public-profile' && (
+                        <div className="bg-white border-t px-6 py-2 flex justify-between items-center pb-safe sticky bottom-0 z-40">
+                            <button onClick={() => setActiveTab('home')} className={`p-2 flex flex-col items-center gap-1 ${activeTab === 'home' ? 'text-brand' : 'text-gray-400'}`}>
+                                <Icon name="home" />
+                                <span className="text-[10px] font-bold">Ana Sayfa</span>
+                            </button>
+                            
+                            <button onClick={() => { setEditingPost(null); setActiveTab('create'); }} className="bg-brand text-white p-4 rounded-full -mt-8 shadow-lg border-4 border-gray-50 hover:scale-105 transition">
+                                <Icon name="plus" size={24} />
+                            </button>
+
+                            <button onClick={() => setActiveTab('profile')} className={`p-2 flex flex-col items-center gap-1 ${activeTab === 'profile' ? 'text-brand' : 'text-gray-400'}`}>
+                                <Icon name="user" />
+                                <span className="text-[10px] font-bold">Profilim</span>
+                            </button>
+                        </div>
+                    )}
+                    
+                    {/* Admin Switcher */}
+                    {user.role === 'admin' && activeTab !== 'admin' && (
+                         <button onClick={() => setActiveTab('admin')} className="fixed bottom-24 left-4 bg-black text-white p-3 rounded-full shadow-lg text-xs z-50">
+                            Admin Panel
+                        </button>
+                    )}
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
