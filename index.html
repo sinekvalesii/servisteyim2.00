@@ -1282,6 +1282,277 @@
             );
         };
 
+        // Post Creator
+        const CreatePost = ({ currentUser, onComplete, editPost = null }) => {
+            const [form, setForm] = useState(editPost || {
+                category: 'surucu-ariyorum',
+                accountType: 'individual',
+                title: '',
+                description: '',
+                vehicleType: '',
+                vehicleModel: '',
+                vehicleYear: '',
+                salary: '',
+                contactInfo: currentUser.phone || currentUser.email,
+                companyName: '',
+                location: { address: '', lat: 0, lng: 0 }
+            });
+
+            // Separate states for City/District selection
+            const [selectedCity, setSelectedCity] = useState('');
+            const [selectedDistrict, setSelectedDistrict] = useState('');
+
+            // Separate states for Brand/Model selection
+            const [selectedBrand, setSelectedBrand] = useState('');
+            const [selectedModel, setSelectedModel] = useState('');
+
+            // Populate city/district and brand/model if editing
+            useEffect(() => {
+                if (editPost) {
+                    // Location logic
+                    if (editPost.location && editPost.location.address) {
+                        const parts = editPost.location.address.split(' / ');
+                        if (parts.length === 2) {
+                            const [d, c] = parts;
+                            if (TURKEY_DATA[c]) {
+                                setSelectedCity(c);
+                                setSelectedDistrict(d);
+                            }
+                        }
+                    }
+                    // Vehicle Logic
+                    if (editPost.vehicleModel) {
+                        const vParts = editPost.vehicleModel.split(' - ');
+                        if (vParts.length === 2 && VEHICLE_BRANDS[vParts[0]]) {
+                            setSelectedBrand(vParts[0]);
+                            setSelectedModel(vParts[1]);
+                        }
+                    }
+                }
+            }, [editPost]);
+
+            // ... existing handlers (handleCityChange, handleDistrictChange) ...
+            const handleCityChange = (e) => {
+                const city = e.target.value;
+                setSelectedCity(city);
+                setSelectedDistrict(''); 
+                setForm(prev => ({
+                    ...prev,
+                    location: { ...prev.location, address: city ? `${city}` : '' } 
+                }));
+            };
+
+            const handleDistrictChange = (e) => {
+                const district = e.target.value;
+                setSelectedDistrict(district);
+                if (selectedCity && district) {
+                    setForm(prev => ({
+                        ...prev,
+                        location: { ...prev.location, address: `${district} / ${selectedCity}` }
+                    }));
+                }
+            };
+
+            // New Handlers for Vehicle
+            const handleBrandChange = (e) => {
+                const brand = e.target.value;
+                setSelectedBrand(brand);
+                setSelectedModel('');
+                setForm(prev => ({ ...prev, vehicleModel: brand })); // Temporary, finalized with model
+            };
+
+            const handleModelChange = (e) => {
+                const model = e.target.value;
+                setSelectedModel(model);
+                if (selectedBrand && model) {
+                    setForm(prev => ({ ...prev, vehicleModel: `${selectedBrand} - ${model}` }));
+                }
+            };
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                
+                // Validate City/District
+                if (!selectedCity || !selectedDistrict) {
+                    alert('Lütfen İl ve İlçe seçimi yapınız.');
+                    return;
+                }
+
+                // Validate Vehicle info if vehicle type is selected
+                if (form.vehicleType && (!selectedBrand || !selectedModel || !form.vehicleYear)) {
+                     alert('Lütfen araç markasını, modelini ve yılını seçiniz.');
+                     return;
+                }
+
+                const postData = {
+                    ...form,
+                    id: editPost ? editPost.id : generateId(),
+                    userId: currentUser.id,
+                    updatedAt: editPost ? new Date().toISOString() : null,
+                    createdAt: editPost ? editPost.createdAt : new Date().toISOString(),
+                    status: 'active',
+                    isSponsored: editPost ? editPost.isSponsored : false,
+                    views: editPost ? editPost.views : 0
+                };
+
+                if (editPost) await api.posts.update(postData);
+                else await api.posts.create(postData);
+                
+                onComplete();
+            };
+
+            // Generate years for dropdown
+            const years = [];
+            for(let i = 2025; i >= 2005; i--) {
+                years.push(i);
+            }
+
+            return (
+                <div className="p-4 pb-24 bg-white min-h-screen">
+                    <h2 className="text-xl font-bold mb-6">{editPost ? 'İlanı Düzenle' : 'Yeni İlan Oluştur'}</h2>
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                        
+                        {/* ... existing Account Type & Category selection ... */}
+                        <div>
+                            <label className="block text-sm font-bold mb-1">Hesap Tipi</label>
+                            <div className="flex gap-4">
+                                <label className="flex items-center gap-2 border p-3 rounded-lg flex-1 cursor-pointer has-[:checked]:border-brand has-[:checked]:bg-brand/5">
+                                    <input type="radio" name="accType" checked={form.accountType === 'individual'} onChange={() => setForm({...form, accountType: 'individual'})} />
+                                    Bireysel
+                                </label>
+                                <label className="flex items-center gap-2 border p-3 rounded-lg flex-1 cursor-pointer has-[:checked]:border-brand has-[:checked]:bg-brand/5">
+                                    <input type="radio" name="accType" checked={form.accountType === 'company'} onChange={() => setForm({...form, accountType: 'company'})} />
+                                    Firma
+                                </label>
+                            </div>
+                        </div>
+
+                        {form.accountType === 'company' && (
+                            <input type="text" placeholder="Firma Adı (Zorunlu)" required className="w-full border p-3 rounded-lg" value={form.companyName} onChange={e => setForm({...form, companyName: e.target.value})} />
+                        )}
+
+                        <select className="w-full border p-3 rounded-lg" value={form.category} onChange={e => setForm({...form, category: e.target.value})}>
+                            <option value="surucu-ariyorum">👨‍✈️ Sürücü Arıyorum</option>
+                            <option value="is-ariyorum">💼 İş Arıyorum</option>
+                            <option value="arac-ariyorum">🚗 Araç Arıyorum</option>
+                        </select>
+
+                        <input type="text" placeholder="İlan Başlığı (Max 100)" maxLength={100} required className="w-full border p-3 rounded-lg" value={form.title} onChange={e => setForm({...form, title: e.target.value})} />
+                        
+                        <textarea placeholder="Açıklama (Max 1000)" maxLength={1000} required className="w-full border p-3 rounded-lg h-32" value={form.description} onChange={e => setForm({...form, description: e.target.value})}></textarea>
+                        
+                        {/* --- NEW: Commercial Vehicle Selection Panel --- */}
+                        <div className="p-4 bg-gray-50 rounded-xl border border-gray-100 space-y-3">
+                            <div className="flex items-center gap-2 text-sm font-bold text-gray-700 mb-1">
+                                <Icon name="truck" size={16} /> Araç Bilgileri
+                            </div>
+                            
+                            <div>
+                                <select 
+                                    className="w-full border p-3 rounded-lg bg-white"
+                                    value={form.vehicleType}
+                                    onChange={e => setForm({...form, vehicleType: e.target.value})}
+                                >
+                                    <option value="">Araç Tipi Seçiniz (Opsiyonel)</option>
+                                    {VEHICLE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                                </select>
+                            </div>
+
+                            {/* Only show Brand/Model if Type is selected */}
+                            {form.vehicleType && (
+                                <div className="space-y-3 animate-fade-in">
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-500 mb-1 ml-1">Marka</label>
+                                            <select 
+                                                className="w-full border p-3 rounded-lg bg-white"
+                                                value={selectedBrand}
+                                                onChange={handleBrandChange}
+                                            >
+                                                <option value="">Seçiniz</option>
+                                                {Object.keys(VEHICLE_BRANDS).map(brand => (
+                                                    <option key={brand} value={brand}>{brand}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-500 mb-1 ml-1">Model</label>
+                                            <select 
+                                                className="w-full border p-3 rounded-lg bg-white disabled:bg-gray-100 disabled:text-gray-400"
+                                                value={selectedModel}
+                                                onChange={handleModelChange}
+                                                disabled={!selectedBrand}
+                                            >
+                                                <option value="">{selectedBrand ? 'Seçiniz' : 'Önce Marka'}</option>
+                                                {selectedBrand && VEHICLE_BRANDS[selectedBrand].map(model => (
+                                                    <option key={model} value={model}>{model}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-500 mb-1 ml-1">Model Yılı</label>
+                                        <select 
+                                            className="w-full border p-3 rounded-lg bg-white"
+                                            value={form.vehicleYear}
+                                            onChange={e => setForm({...form, vehicleYear: e.target.value})}
+                                        >
+                                            <option value="">Yıl Seçiniz</option>
+                                            {years.map(year => (
+                                                <option key={year} value={year}>{year}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <input type="text" placeholder="Ücret (Opsiyonel)" className="w-full border p-3 rounded-lg" value={form.salary} onChange={e => setForm({...form, salary: e.target.value})} />
+                            <input type="text" placeholder="İletişim (Zorunlu)" required className="w-full border p-3 rounded-lg" value={form.contactInfo} onChange={e => setForm({...form, contactInfo: e.target.value})} />
+                        </div>
+
+                        {/* --- New Location Selection UI --- */}
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 mb-1 ml-1">İl</label>
+                                <select 
+                                    className="w-full border p-3 rounded-lg" 
+                                    value={selectedCity} 
+                                    onChange={handleCityChange}
+                                    required
+                                >
+                                    <option value="">Seçiniz</option>
+                                    {Object.keys(TURKEY_DATA).map(city => (
+                                        <option key={city} value={city}>{city}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 mb-1 ml-1">İlçe</label>
+                                <select 
+                                    className="w-full border p-3 rounded-lg disabled:bg-gray-100 disabled:text-gray-400" 
+                                    value={selectedDistrict} 
+                                    onChange={handleDistrictChange}
+                                    disabled={!selectedCity}
+                                    required
+                                >
+                                    <option value="">{selectedCity ? 'Seçiniz' : 'Önce İl Seçin'}</option>
+                                    {selectedCity && TURKEY_DATA[selectedCity].map(dist => (
+                                        <option key={dist} value={dist}>{dist}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+
+                        <button className="w-full bg-brand text-white py-4 rounded-xl font-bold shadow-lg hover:bg-brand-dark transition">
+                            {editPost ? 'Değişiklikleri Kaydet' : 'İlanı Yayınla'}
+                        </button>
+                    </form>
+                </div>
+            );
+        };
+
         // Profile & My Posts
         const Profile = ({ currentUser, onLogout, onUpdateUser }) => {
             const [activeTab, setActiveTab] = useState('info');
